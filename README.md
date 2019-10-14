@@ -1,5 +1,7 @@
 # RG.CodeAnalyzer
 
+[![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/)
+
 ## Analyzers:
 ### 1. Do not await asynchronous operation inside a loop
 ```cs
