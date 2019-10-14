@@ -19,3 +19,11 @@ do {
     await Task.Delay(1000); // RG0001: Asynchronous operation awaited inside do..while loop.
 } while (true);
 ```
+
+### 2. Do not return Task from a method that disposes object
+```cs
+Task Foo() {
+    using var cts = new CancellationTokenSource();
+    return Task.Delay(1000, cts.Token); // RG0002: Method 'Foo' disposes an object and shouldn't return Task.
+}
+```

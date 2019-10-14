@@ -1,16 +1,13 @@
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using TestHelper;
-using RG.CodeAnalyzer;
 
 namespace RG.CodeAnalyzer.Test {
 	[TestClass]
 	public class NoAwaitInsideLoopUnitTest : CodeFixVerifier {
 
-		//No diagnostics expected to show up
 		[TestMethod]
 		public void TestMethod1() {
 			var test = @"";
@@ -18,7 +15,6 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpDiagnostic(test);
 		}
 
-		//Diagnostic and CodeFix both triggered and checked for
 		[TestMethod]
 		public void TestMethod2() {
 			var test = @"
