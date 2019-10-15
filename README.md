@@ -24,8 +24,16 @@ do {
 
 ### 2. Do not return Task from a method that disposes object
 ```cs
-Task Foo() {
+Task Foo() { // RG0002: Method 'Foo' disposes an object and shouldn't return Task.
     using var cts = new CancellationTokenSource();
-    return Task.Delay(1000, cts.Token); // RG0002: Method 'Foo' disposes an object and shouldn't return Task.
+    return Task.Delay(1000, cts.Token);
+}
+```
+
+### 3. Identifiers declared in Internal namespace must be internal.
+```cs
+namespace Foo.Internal.Models {
+    public class Bar { // RG0003: Identifier 'Bar' is declared in 'Foo.Internal.Models' namespace, and thus must be declared internal.
+    }
 }
 ```

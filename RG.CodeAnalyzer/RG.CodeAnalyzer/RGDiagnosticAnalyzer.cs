@@ -10,6 +10,7 @@ namespace RG.CodeAnalyzer {
 	public class RGDiagnosticAnalyzer : DiagnosticAnalyzer {
 		public const string NoAwaitInsideLoopId = "RG0001";
 		public const string DontReturnTaskIfMethodDisposesObjectId = "RG0002";
+		public const string IdentifiersInInternalNamespaceMustBeInternalId = "RG0003";
 
 		private static DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
 			id: NoAwaitInsideLoopId,
@@ -29,11 +30,21 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not return Task from a method that disposes an object. Mark method as async instead.");
 
+		private static DiagnosticDescriptor IdentifiersInInternalNamespaceMustBeInternal = new DiagnosticDescriptor(
+			id: IdentifiersInInternalNamespaceMustBeInternalId,
+			title: "Identifiers declared in Internal namespace must be internal.",
+			messageFormat: "Identifier '{0}' is declared in '{1}' namespace, and thus must be declared internal.",
+			category: "Security",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Identifiers declared in Internal namespace must be internal.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
 			get {
 				return ImmutableArray.Create(
 					NoAwaitInsideLoop,
-					DontReturnTaskIfMethodDisposesObject
+					DontReturnTaskIfMethodDisposesObject,
+					IdentifiersInInternalNamespaceMustBeInternal
 				);
 			}
 		}
@@ -41,6 +52,7 @@ namespace RG.CodeAnalyzer {
 		public override void Initialize(AnalysisContext context) {
 			context.RegisterSyntaxNodeAction(AnalyzeAwaitExpression, SyntaxKind.AwaitExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeUsingStatement, SyntaxKind.UsingStatement);
+			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -73,11 +85,11 @@ namespace RG.CodeAnalyzer {
 			});
 			switch (methodNode) {
 				case MethodDeclarationSyntax methodDeclarationSyntax:
-					if (context.SemanticModel.GetSymbolInfo(methodDeclarationSyntax.ReturnType).Symbol is INamedTypeSymbol namedTypeSymbol
+					if (context.SemanticModel.GetSymbolInfo(methodDeclarationSyntax.ReturnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
 						&& namedTypeSymbol.ToString() is string fullName
 						&& fullName.StartsWith("System.Threading.Tasks.Task")
 						&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
-						var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, context.Node.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
+						var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
 					}
 					break;
@@ -88,6 +100,42 @@ namespace RG.CodeAnalyzer {
 					// TODO: handle simple lambda expression
 					break;
 			}
+		}
+
+		private static void AnalyzeNamedTypeDeclaration(SymbolAnalysisContext context) {
+			if (IsInternalNamespace(context.Symbol.ContainingNamespace, out string fullNamespace)) {
+				switch (context.Symbol.DeclaredAccessibility) {
+					case Accessibility.Internal:
+					case Accessibility.Private:
+					case Accessibility.Protected:
+					case Accessibility.ProtectedAndInternal:
+						return;
+					default:
+						var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
+						context.ReportDiagnostic(diagnostic);
+						return;
+				}
+			}
+		}
+
+		private static bool IsInternalNamespace(INamespaceSymbol @namespace, out string fullNamespace) {
+			fullNamespace = "";
+			bool isInternal = false;
+			while (@namespace is { }) {
+				if (@namespace.Name == "Internal"
+					|| @namespace.Name == "Internals") {
+					isInternal = true;
+				}
+				if (!string.IsNullOrEmpty(@namespace.Name)) {
+					if (fullNamespace.Length > 0) {
+						fullNamespace = $"{@namespace.Name}.{fullNamespace}";
+					} else {
+						fullNamespace = @namespace.Name;
+					}
+				}
+				@namespace = @namespace.ContainingNamespace;
+			}
+			return isInternal;
 		}
 	}
 }
