@@ -37,3 +37,47 @@ namespace Foo.Internal.Models {
     }
 }
 ```
+
+### 4. Do not access private fields using member access operator
+```cs
+class Foo {
+    private int x;
+
+    public void SetX(Foo obj, int value) {
+        obj.x = value; // RG0004: Private field 'x' should not be accessed directly.
+    }
+}
+```
+
+### 5. Do not call Dispose() on static readonly fields
+```cs
+class Foo : IDisposable {
+    private static readonly HttpClient _client = new HttpClient();_
+
+    public void Dispose() {
+        _client.Dispose(); // RG0005: Field '_client' is marked 'static readonly' and should not be disposed.
+    }
+}
+```
+
+### 6. Do not call Task.Wait() to invoke a Task
+```cs
+class Program {
+    static void Main() {
+        Foo.ListenAsync().Wait(); // RG0006: Calling Task.Wait() blocks current thread and is not recommended. Use await instead.
+    }
+}
+```
+
+### 7. Do not access Task<>.Result to invoke a Task
+```cs
+class Foo {
+    private async Task<int> GetValueAsync() {
+        return await Task.FromResult(0);
+    }
+
+    public int GetValue() {
+        return GetValueAsync().Result; // RG0007: Accessing Task<>.Result blocks current thread and is not recommended. Use await instead.
+    }
+}
+```
