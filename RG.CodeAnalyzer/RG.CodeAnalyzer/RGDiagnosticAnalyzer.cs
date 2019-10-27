@@ -181,7 +181,8 @@ namespace RG.CodeAnalyzer {
 					&& memberSymbolInfo.Symbol is ISymbol member
 					&& member.Kind == SymbolKind.Field
 					&& !member.IsStatic
-					&& member.DeclaredAccessibility == Accessibility.Private) {
+					&& member.DeclaredAccessibility == Accessibility.Private
+					&& memberAccessExpressionSyntax.Expression.ToString() != "this") {
 					var diagnostic = Diagnostic.Create(DoNotAccessPrivateFieldsOfAnotherObjectDirectly, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
 					context.ReportDiagnostic(diagnostic);
 				} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression) is SymbolInfo objSymbolInfo

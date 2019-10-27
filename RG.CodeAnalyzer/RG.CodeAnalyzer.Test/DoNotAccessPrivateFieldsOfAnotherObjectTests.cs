@@ -34,6 +34,7 @@ namespace RG.CodeAnalyzer.Test {
 			public SetCount(TypeName obj, int count) {
 				obj._count = count;
 				_count = count;
+				this._count = count;
 			}
         }
     }";
