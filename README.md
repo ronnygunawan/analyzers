@@ -10,6 +10,16 @@ Install-Package RG.CodeAnalyzer
 
 Best used together with [Microsoft.CodeAnalysis.FxCopAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.FxCopAnalyzers/) and [Roslynator](https://www.nuget.org/packages/Roslynator.Analyzers/)
 
+### Q: There is nothing wrong with my code. How do I get rid of the warnings?
+You can either:
+1. Set the diagnostic severity to None, or
+2. Suppress the warning and write your justification
+
+### Q: I think one of the warnings is important and I don't want my developers to get away with it. How do I do it?
+You can set the diagnostic severity to Error. This will prevent build from succeeding.
+
+To learn more about changing diagnostic severity and suppressing warnings, visit: https://docs.microsoft.com/en-us/visualstudio/code-quality/use-roslyn-analyzers?view=vs-2019
+
 ## Analyzers:
 ### 1. Do not await asynchronous operation inside a loop
 ```cs
