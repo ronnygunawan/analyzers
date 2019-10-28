@@ -2,6 +2,14 @@
 
 [![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/)
 
+## Installation
+From Package Manager Console:
+```
+Install-Package RG.CodeAnalyzer
+```
+
+Best used together with [Microsoft.CodeAnalysis.FxCopAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.FxCopAnalyzers/) and [Roslynator](https://www.nuget.org/packages/Roslynator.Analyzers/)
+
 ## Analyzers:
 ### 1. Do not await asynchronous operation inside a loop
 ```cs
