@@ -158,6 +158,69 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpFix(test, fixtest);
 		}
 
+		/// <summary>
+		/// Related issue: https://github.com/ronnygunawan/analyzers/issues/6
+		/// </summary>
+		[TestMethod]
+		public void TestMethod5() {
+			var test = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+
+    namespace ConsoleApplication1
+    {
+        class TypeName
+        {
+            public Task MethodName()
+            {
+                using (var cts = new CancellationTokenSource())
+                {
+                    return Task.FromResult(0);
+                }
+            }
+        }
+    }";
+			var expected = new DiagnosticResult {
+				Id = "RG0002",
+				Message = String.Format("Method '{0}' disposes an object and shouldn't return Task.", "MethodName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 13, 13)
+					}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
+
+			var fixtest = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+
+    namespace ConsoleApplication1
+    {
+        class TypeName
+        {
+            public async Task MethodName()
+            {
+                using (var cts = new CancellationTokenSource())
+                {
+                    await Task.FromResult(0);
+                }
+            }
+        }
+    }";
+
+			VerifyCSharpFix(test, fixtest);
+		}
+
 		protected override CodeFixProvider GetCSharpCodeFixProvider() {
 			return new MakeMethodAsyncCodeFixProvider();
 		}
