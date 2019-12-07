@@ -99,3 +99,10 @@ class Foo {
     }
 }
 ```
+
+### 8. Tuple element names must be in PascalCase
+```cs
+(int firstItem, string secondItem) tuple = (1, "2"); // RG0008: 'firstItem' is not a proper name of a tuple element.
+                                                     // RG0008: 'secondItem' is not a proper name of a tuple element.
+(int a, string b) = (tuple.firstItem, tuple.secondItem);
+```

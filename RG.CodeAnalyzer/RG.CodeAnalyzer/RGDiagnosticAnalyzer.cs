@@ -17,6 +17,7 @@ namespace RG.CodeAnalyzer {
 		public const string DoNotCallDisposeOnStaticReadonlyFieldsId = "RG0005";
 		public const string DoNotCallTaskWaitToInvokeTaskId = "RG0006";
 		public const string DoNotAccessTaskResultToInvokeTaskId = "RG0007";
+		public const string TupleElementNamesMustBeInPascalCaseId = "RG0008";
 
 		private static readonly DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
 			id: NoAwaitInsideLoopId,
@@ -81,6 +82,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not access Task<>.Result to invoke a Task. Use await instead.");
 
+		private static readonly DiagnosticDescriptor TupleElementNamesMustBeInPascalCase = new DiagnosticDescriptor(
+			id: TupleElementNamesMustBeInPascalCaseId,
+			title: "Tuple element names must be in Pascal case.",
+			messageFormat: "'{0}' is not a proper name of a tuple element.",
+			category: "Code Style",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Tuple element names must be in Pascal case.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
 			get {
 				return ImmutableArray.Create(
@@ -90,7 +100,8 @@ namespace RG.CodeAnalyzer {
 					DoNotAccessPrivateFieldsOfAnotherObjectDirectly,
 					DoNotCallDisposeOnStaticReadonlyFields,
 					DoNotCallTaskWaitToInvokeTask,
-					DoNotAccessTaskResultToInvokeTask
+					DoNotAccessTaskResultToInvokeTask,
+					TupleElementNamesMustBeInPascalCase
 				);
 			}
 		}
@@ -106,6 +117,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeUsingStatement, SyntaxKind.UsingStatement);
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 			context.RegisterSyntaxNodeAction(AnalyzeMemberAccessExpression, SyntaxKind.SimpleMemberAccessExpression);
+			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -211,6 +223,18 @@ namespace RG.CodeAnalyzer {
 			}
 		}
 
+		private static void AnalyzeTupleTypes(SyntaxNodeAnalysisContext context) {
+			if (context.Node is TupleTypeSyntax tupleTypeSyntax) {
+				foreach (TupleElementSyntax tupleElementSyntax in tupleTypeSyntax.Elements) {
+					if (tupleElementSyntax is { Identifier: { ValueText: var elementName } identifier }
+						&& !IsInPascalCase(elementName)) {
+						var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
+						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			}
+		}
+
 		#region Helpers
 		private static bool IsInternalNamespace(INamespaceSymbol @namespace, out string fullNamespace) {
 			fullNamespace = "";
@@ -235,6 +259,23 @@ namespace RG.CodeAnalyzer {
 		private static bool IsSymbolReadOnly(ISymbol symbol) {
 			PropertyInfo prop = symbol.GetType().GetRuntimeProperty("IsReadOnly");
 			return prop.GetValue(symbol) is true;
+		}
+
+		internal static bool IsInPascalCase(string identifierName) {
+			return identifierName.Length > 0
+				&& char.IsUpper(identifierName[0])
+				&& identifierName.Skip(1).All(c => char.IsLetterOrDigit(c));
+		}
+
+		internal static bool IsInCamelCase(string identifierName) {
+			return identifierName.Length > 0
+				&& char.IsLower(identifierName[0])
+				&& identifierName.Skip(1).All(c => char.IsLetterOrDigit(c));
+		}
+
+		internal static string ToPascalCase(string camelCaseIdentifierName) {
+			if (!IsInCamelCase(camelCaseIdentifierName)) throw new ArgumentException("Identifier name is not in camel case.", nameof(camelCaseIdentifierName));
+			return $"{char.ToUpper(camelCaseIdentifierName[0])}{camelCaseIdentifierName.Substring(1)}";
 		}
 		#endregion
 	}
