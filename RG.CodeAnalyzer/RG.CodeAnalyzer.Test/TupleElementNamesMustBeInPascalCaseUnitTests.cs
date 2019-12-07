@@ -9,7 +9,7 @@ using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
 	[TestClass]
-	public class TupleElementNamesMustBeInPascalCaseTests : CodeFixVerifier {
+	public class TupleElementNamesMustBeInPascalCaseUnitTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestMethod1() {
 			var test = @"";

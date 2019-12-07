@@ -18,6 +18,7 @@ namespace RG.CodeAnalyzer {
 		public const string DoNotCallTaskWaitToInvokeTaskId = "RG0006";
 		public const string DoNotAccessTaskResultToInvokeTaskId = "RG0007";
 		public const string TupleElementNamesMustBeInPascalCaseId = "RG0008";
+		public const string NotUsingOverloadWithCancellationTokenId = "RG0009";
 
 		private static readonly DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
 			id: NoAwaitInsideLoopId,
@@ -91,6 +92,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Tuple element names must be in Pascal case.");
 
+		private static readonly DiagnosticDescriptor NotUsingOverloadWithCancellationToken = new DiagnosticDescriptor(
+			id: NotUsingOverloadWithCancellationTokenId,
+			title: "Not using overload with CancellationToken.",
+			messageFormat: "This method has an overload that accepts CancellationToken.",
+			category: "Performance",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Not using overload with CancellationToken.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
 			get {
 				return ImmutableArray.Create(
@@ -101,7 +111,8 @@ namespace RG.CodeAnalyzer {
 					DoNotCallDisposeOnStaticReadonlyFields,
 					DoNotCallTaskWaitToInvokeTask,
 					DoNotAccessTaskResultToInvokeTask,
-					TupleElementNamesMustBeInPascalCase
+					TupleElementNamesMustBeInPascalCase,
+					NotUsingOverloadWithCancellationToken
 				);
 			}
 		}
@@ -118,6 +129,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 			context.RegisterSyntaxNodeAction(AnalyzeMemberAccessExpression, SyntaxKind.SimpleMemberAccessExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
+			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -230,6 +242,41 @@ namespace RG.CodeAnalyzer {
 						&& !IsInPascalCase(elementName)) {
 						var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
 						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			}
+		}
+
+		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
+			if (context.Node is InvocationExpressionSyntax invocationExpressionSyntax) {
+				if (context.SemanticModel.GetSymbolInfo(invocationExpressionSyntax.Expression).Symbol is IMethodSymbol methodSymbol) {
+					var methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+					if (methodDeclaration is { ParameterList: { Parameters: var callerParameters } }
+						&& callerParameters.Any(callerParameter => callerParameter.Type.ToString() is var type && (type == "CancellationToken" || type == "System.Threading.CancellationToken"))) {
+						if (methodSymbol.Parameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count) {
+							foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
+								if (overloadSymbol.Parameters.Length == methodSymbol.Parameters.Length + 1
+									&& overloadSymbol.ReturnType.Equals(methodSymbol.ReturnType)
+									&& overloadSymbol.Parameters.Last().Type.ToString() is var type
+									&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
+									bool signatureMatches = true;
+									for (int i = 0; i < methodSymbol.Parameters.Length; i++) {
+										if (!overloadSymbol.Parameters[i].Type.Equals(methodSymbol.Parameters[i].Type)) {
+											signatureMatches = false;
+										}
+									}
+									if (signatureMatches) {
+										var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+										context.ReportDiagnostic(diagnostic);
+									}
+								}
+							}
+						} else if (methodSymbol.Parameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
+							&& methodSymbol.Parameters.Last().Type.ToString() is var type
+							&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
+							var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+							context.ReportDiagnostic(diagnostic);
+						}
 					}
 				}
 			}

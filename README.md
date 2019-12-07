@@ -106,3 +106,10 @@ class Foo {
                                                      // RG0008: 'secondItem' is not a proper name of a tuple element.
 (int a, string b) = (tuple.firstItem, tuple.secondItem);
 ```
+
+### 9. Use overload which accepts CancellationToken whenever possible
+```
+public async Task<List<Product>> GetAllAsync(int id, CancellationToken cancellationToken) {
+    return await _dbContext.Products.ToListAsync(); // RG0009: This method has an overload that accepts CancellationToken.
+}
+```
