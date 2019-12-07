@@ -108,7 +108,7 @@ class Foo {
 ```
 
 ### 9. Use overload which accepts CancellationToken whenever possible
-```
+```cs
 public async Task<List<Product>> GetAllAsync(int id, CancellationToken cancellationToken) {
     return await _dbContext.Products.ToListAsync(); // RG0009: This method has an overload that accepts CancellationToken.
 }
