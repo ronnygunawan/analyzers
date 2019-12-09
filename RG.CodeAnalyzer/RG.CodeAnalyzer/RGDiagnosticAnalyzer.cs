@@ -86,7 +86,7 @@ namespace RG.CodeAnalyzer {
 		private static readonly DiagnosticDescriptor TupleElementNamesMustBeInPascalCase = new DiagnosticDescriptor(
 			id: TupleElementNamesMustBeInPascalCaseId,
 			title: "Tuple element names must be in Pascal case.",
-			messageFormat: "'{0}' is not a proper name of a tuple element.",
+			messageFormat: "'{0}' is not a proper name of a tuple element. Convert it to PascalCase.",
 			category: "Code Style",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
@@ -236,9 +236,9 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeTupleTypes(SyntaxNodeAnalysisContext context) {
-			if (context.Node is TupleTypeSyntax tupleTypeSyntax) {
-				foreach (TupleElementSyntax tupleElementSyntax in tupleTypeSyntax.Elements) {
-					if (tupleElementSyntax is { Identifier: { ValueText: var elementName } identifier }
+			if (context.Node is TupleTypeSyntax { Elements: { } tupleElements } tupleTypeSyntax) {
+				foreach (TupleElementSyntax tupleElementSyntax in tupleElements) {
+					if (tupleElementSyntax is { Identifier: { ValueText: string elementName } identifier }
 						&& !IsInPascalCase(elementName)) {
 						var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
 						context.ReportDiagnostic(diagnostic);
@@ -248,20 +248,20 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
-			if (context.Node is InvocationExpressionSyntax invocationExpressionSyntax) {
-				if (context.SemanticModel.GetSymbolInfo(invocationExpressionSyntax.Expression).Symbol is IMethodSymbol methodSymbol) {
+			if (context.Node is InvocationExpressionSyntax { Expression: { } expression } invocationExpressionSyntax) {
+				if (context.SemanticModel.GetSymbolInfo(expression).Symbol is IMethodSymbol { Parameters: { }  methodParameters, ReturnType: { } methodReturnType }) {
 					var methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-					if (methodDeclaration is { ParameterList: { Parameters: var callerParameters } }
+					if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
 						&& callerParameters.Any(callerParameter => callerParameter.Type.ToString() is var type && (type == "CancellationToken" || type == "System.Threading.CancellationToken"))) {
-						if (methodSymbol.Parameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count) {
+						if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count) {
 							foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
-								if (overloadSymbol.Parameters.Length == methodSymbol.Parameters.Length + 1
-									&& overloadSymbol.ReturnType.Equals(methodSymbol.ReturnType)
+								if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
+									&& overloadSymbol.ReturnType.Equals(methodReturnType)
 									&& overloadSymbol.Parameters.Last().Type.ToString() is var type
 									&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
 									bool signatureMatches = true;
-									for (int i = 0; i < methodSymbol.Parameters.Length; i++) {
-										if (!overloadSymbol.Parameters[i].Type.Equals(methodSymbol.Parameters[i].Type)) {
+									for (int i = 0; i < methodParameters.Length; i++) {
+										if (!overloadSymbol.Parameters[i].Type.Equals(methodParameters[i].Type)) {
 											signatureMatches = false;
 										}
 									}
@@ -271,8 +271,8 @@ namespace RG.CodeAnalyzer {
 									}
 								}
 							}
-						} else if (methodSymbol.Parameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
-							&& methodSymbol.Parameters.Last().Type.ToString() is var type
+						} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
+							&& methodParameters.Last().Type.ToString() is var type
 							&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
 							var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
 							context.ReportDiagnostic(diagnostic);

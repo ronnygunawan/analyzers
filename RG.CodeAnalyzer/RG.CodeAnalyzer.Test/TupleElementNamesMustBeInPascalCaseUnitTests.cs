@@ -40,7 +40,7 @@ namespace RG.CodeAnalyzer.Test {
     }";
 			var expected1 = new DiagnosticResult {
 				Id = "RG0008",
-				Message = String.Format("'{0}' is not a proper name of a tuple element.", "firstItem"),
+				Message = String.Format("'{0}' is not a proper name of a tuple element. Convert it to PascalCase.", "firstItem"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -49,7 +49,7 @@ namespace RG.CodeAnalyzer.Test {
 			};
             var expected2 = new DiagnosticResult {
 				Id = "RG0008",
-				Message = String.Format("'{0}' is not a proper name of a tuple element.", "secondItem"),
+				Message = String.Format("'{0}' is not a proper name of a tuple element. Convert it to PascalCase.", "secondItem"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
