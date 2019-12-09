@@ -86,7 +86,7 @@ namespace RG.CodeAnalyzer {
 		private static readonly DiagnosticDescriptor TupleElementNamesMustBeInPascalCase = new DiagnosticDescriptor(
 			id: TupleElementNamesMustBeInPascalCaseId,
 			title: "Tuple element names must be in Pascal case.",
-			messageFormat: "'{0}' is not a proper name of a tuple element. Convert it to PascalCase.",
+			messageFormat: "'{0}' is not a proper name of a tuple element. Change it to PascalCase.",
 			category: "Code Style",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
