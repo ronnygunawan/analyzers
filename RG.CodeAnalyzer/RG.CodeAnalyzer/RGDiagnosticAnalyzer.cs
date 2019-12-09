@@ -133,62 +133,66 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
-			SyntaxNode loopNode = context.Node.Ancestors().FirstOrDefault(ancestor => {
-				SyntaxKind kind = ancestor.Kind();
-				return kind == SyntaxKind.ForStatement
-					|| kind == SyntaxKind.ForEachStatement
-					|| kind == SyntaxKind.WhileStatement
-					|| kind == SyntaxKind.DoStatement
-					|| kind == SyntaxKind.MethodDeclaration
-					|| kind == SyntaxKind.ParenthesizedLambdaExpression
-					|| kind == SyntaxKind.SimpleLambdaExpression
-					|| kind == SyntaxKind.AnonymousMethodExpression;
-			});
-			if (loopNode is { }
-				&& loopNode.Kind() is SyntaxKind kind
-				&& (kind == SyntaxKind.ForStatement
-					|| kind == SyntaxKind.ForEachStatement
-					|| kind == SyntaxKind.WhileStatement
-					|| kind == SyntaxKind.DoStatement)) {
-				var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, context.Node.GetLocation(), loopNode.Kind() switch
-				{
-					SyntaxKind.ForStatement => "for loop",
-					SyntaxKind.ForEachStatement => "foreach loop",
-					SyntaxKind.WhileStatement => "while loop",
-					SyntaxKind.DoStatement => "do..while loop",
-					_ => "loop"
+			if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
+				SyntaxNode loopNode = awaitExpressionSyntax.Ancestors().FirstOrDefault(ancestor => {
+					SyntaxKind kind = ancestor.Kind();
+					return kind == SyntaxKind.ForStatement
+						|| kind == SyntaxKind.ForEachStatement
+						|| kind == SyntaxKind.WhileStatement
+						|| kind == SyntaxKind.DoStatement
+						|| kind == SyntaxKind.MethodDeclaration
+						|| kind == SyntaxKind.ParenthesizedLambdaExpression
+						|| kind == SyntaxKind.SimpleLambdaExpression
+						|| kind == SyntaxKind.AnonymousMethodExpression;
 				});
-				context.ReportDiagnostic(diagnostic);
+				if (loopNode is { }
+					&& loopNode.Kind() is SyntaxKind kind
+					&& (kind == SyntaxKind.ForStatement
+						|| kind == SyntaxKind.ForEachStatement
+						|| kind == SyntaxKind.WhileStatement
+						|| kind == SyntaxKind.DoStatement)) {
+					var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, awaitExpressionSyntax.GetLocation(), loopNode.Kind() switch
+					{
+						SyntaxKind.ForStatement => "for loop",
+						SyntaxKind.ForEachStatement => "foreach loop",
+						SyntaxKind.WhileStatement => "while loop",
+						SyntaxKind.DoStatement => "do..while loop",
+						_ => "loop"
+					});
+					context.ReportDiagnostic(diagnostic);
+				}
 			}
 		}
 
 		private static void AnalyzeUsingStatement(SyntaxNodeAnalysisContext context) {
-			SyntaxNode methodNode = context.Node.Ancestors().FirstOrDefault(ancestor => {
-				SyntaxKind kind = ancestor.Kind();
-				return kind == SyntaxKind.MethodDeclaration
-					|| kind == SyntaxKind.ParenthesizedLambdaExpression
-					|| kind == SyntaxKind.SimpleLambdaExpression
-					|| kind == SyntaxKind.AnonymousMethodExpression;
-			});
-			switch (methodNode) {
-				case MethodDeclarationSyntax methodDeclarationSyntax:
-					if (context.SemanticModel.GetSymbolInfo(methodDeclarationSyntax.ReturnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
-						&& namedTypeSymbol.ToString() is string fullName
-						&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-						&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
-						var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
-						context.ReportDiagnostic(diagnostic);
-					}
-					break;
-				case ParenthesizedLambdaExpressionSyntax parenthesizedLambdaExpressionSyntax:
-					// TODO: handle parenthesized lambda expression
-					break;
-				case SimpleLambdaExpressionSyntax simpleLambdaExpressionSyntax:
-					// TODO: handle simple lambda expression
-					break;
-				case AnonymousMethodExpressionSyntax anonymousMethodExpressionSyntax:
-					// TODO: handle anonymous method expression
-					break;
+			if (context.Node is UsingStatementSyntax usingStatementSyntax) {
+				SyntaxNode methodNode = usingStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
+					SyntaxKind kind = ancestor.Kind();
+					return kind == SyntaxKind.MethodDeclaration
+						|| kind == SyntaxKind.ParenthesizedLambdaExpression
+						|| kind == SyntaxKind.SimpleLambdaExpression
+						|| kind == SyntaxKind.AnonymousMethodExpression;
+				});
+				switch (methodNode) {
+					case MethodDeclarationSyntax { ReturnType: { } returnType } methodDeclarationSyntax:
+						if (context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
+							&& namedTypeSymbol.ToString() is string fullName
+							&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+							&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
+							var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
+							context.ReportDiagnostic(diagnostic);
+						}
+						break;
+					case ParenthesizedLambdaExpressionSyntax parenthesizedLambdaExpressionSyntax:
+						// TODO: handle parenthesized lambda expression
+						break;
+					case SimpleLambdaExpressionSyntax simpleLambdaExpressionSyntax:
+						// TODO: handle simple lambda expression
+						break;
+					case AnonymousMethodExpressionSyntax anonymousMethodExpressionSyntax:
+						// TODO: handle anonymous method expression
+						break;
+				}
 			}
 		}
 
