@@ -133,167 +133,191 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
-			if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
-				SyntaxNode loopNode = awaitExpressionSyntax.Ancestors().FirstOrDefault(ancestor => {
-					SyntaxKind kind = ancestor.Kind();
-					return kind == SyntaxKind.ForStatement
-						|| kind == SyntaxKind.ForEachStatement
-						|| kind == SyntaxKind.WhileStatement
-						|| kind == SyntaxKind.DoStatement
-						|| kind == SyntaxKind.MethodDeclaration
-						|| kind == SyntaxKind.ParenthesizedLambdaExpression
-						|| kind == SyntaxKind.SimpleLambdaExpression
-						|| kind == SyntaxKind.AnonymousMethodExpression;
-				});
-				if (loopNode is { }
-					&& loopNode.Kind() is SyntaxKind kind
-					&& (kind == SyntaxKind.ForStatement
-						|| kind == SyntaxKind.ForEachStatement
-						|| kind == SyntaxKind.WhileStatement
-						|| kind == SyntaxKind.DoStatement)) {
-					var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, awaitExpressionSyntax.GetLocation(), loopNode.Kind() switch
-					{
-						SyntaxKind.ForStatement => "for loop",
-						SyntaxKind.ForEachStatement => "foreach loop",
-						SyntaxKind.WhileStatement => "while loop",
-						SyntaxKind.DoStatement => "do..while loop",
-						_ => "loop"
+			try {
+				if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
+					SyntaxNode loopNode = awaitExpressionSyntax.Ancestors().FirstOrDefault(ancestor => {
+						SyntaxKind kind = ancestor.Kind();
+						return kind == SyntaxKind.ForStatement
+							|| kind == SyntaxKind.ForEachStatement
+							|| kind == SyntaxKind.WhileStatement
+							|| kind == SyntaxKind.DoStatement
+							|| kind == SyntaxKind.MethodDeclaration
+							|| kind == SyntaxKind.ParenthesizedLambdaExpression
+							|| kind == SyntaxKind.SimpleLambdaExpression
+							|| kind == SyntaxKind.AnonymousMethodExpression;
 					});
-					context.ReportDiagnostic(diagnostic);
+					if (loopNode is { }
+						&& loopNode.Kind() is SyntaxKind kind
+						&& (kind == SyntaxKind.ForStatement
+							|| kind == SyntaxKind.ForEachStatement
+							|| kind == SyntaxKind.WhileStatement
+							|| kind == SyntaxKind.DoStatement)) {
+						var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, awaitExpressionSyntax.GetLocation(), loopNode.Kind() switch
+						{
+							SyntaxKind.ForStatement => "for loop",
+							SyntaxKind.ForEachStatement => "foreach loop",
+							SyntaxKind.WhileStatement => "while loop",
+							SyntaxKind.DoStatement => "do..while loop",
+							_ => "loop"
+						});
+						context.ReportDiagnostic(diagnostic);
+					}
 				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
 		private static void AnalyzeUsingStatement(SyntaxNodeAnalysisContext context) {
-			if (context.Node is UsingStatementSyntax usingStatementSyntax) {
-				SyntaxNode methodNode = usingStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
-					SyntaxKind kind = ancestor.Kind();
-					return kind == SyntaxKind.MethodDeclaration
-						|| kind == SyntaxKind.ParenthesizedLambdaExpression
-						|| kind == SyntaxKind.SimpleLambdaExpression
-						|| kind == SyntaxKind.AnonymousMethodExpression;
-				});
-				switch (methodNode) {
-					case MethodDeclarationSyntax { ReturnType: { } returnType } methodDeclarationSyntax:
-						if (context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
-							&& namedTypeSymbol.ToString() is string fullName
-							&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-							&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
-							var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
-							context.ReportDiagnostic(diagnostic);
-						}
-						break;
-					case ParenthesizedLambdaExpressionSyntax parenthesizedLambdaExpressionSyntax:
-						// TODO: handle parenthesized lambda expression
-						break;
-					case SimpleLambdaExpressionSyntax simpleLambdaExpressionSyntax:
-						// TODO: handle simple lambda expression
-						break;
-					case AnonymousMethodExpressionSyntax anonymousMethodExpressionSyntax:
-						// TODO: handle anonymous method expression
-						break;
+			try {
+				if (context.Node is UsingStatementSyntax usingStatementSyntax) {
+					SyntaxNode methodNode = usingStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
+						SyntaxKind kind = ancestor.Kind();
+						return kind == SyntaxKind.MethodDeclaration
+							|| kind == SyntaxKind.ParenthesizedLambdaExpression
+							|| kind == SyntaxKind.SimpleLambdaExpression
+							|| kind == SyntaxKind.AnonymousMethodExpression;
+					});
+					switch (methodNode) {
+						case MethodDeclarationSyntax { ReturnType: { } returnType } methodDeclarationSyntax:
+							if (context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
+								&& namedTypeSymbol.ToString() is string fullName
+								&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+								&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
+								var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							}
+							break;
+						case ParenthesizedLambdaExpressionSyntax parenthesizedLambdaExpressionSyntax:
+							// TODO: handle parenthesized lambda expression
+							break;
+						case SimpleLambdaExpressionSyntax simpleLambdaExpressionSyntax:
+							// TODO: handle simple lambda expression
+							break;
+						case AnonymousMethodExpressionSyntax anonymousMethodExpressionSyntax:
+							// TODO: handle anonymous method expression
+							break;
+					}
 				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
 		private static void AnalyzeNamedTypeDeclaration(SymbolAnalysisContext context) {
-			if (context.Symbol is INamedTypeSymbol { ContainingNamespace: { } containingNamespace }) {
-				if (IsInternalNamespace(containingNamespace, out string fullNamespace)) {
-					switch (context.Symbol.DeclaredAccessibility) {
-						case Accessibility.Internal:
-						case Accessibility.Private:
-						case Accessibility.Protected:
-						case Accessibility.ProtectedAndInternal:
-							return;
-						default:
-							var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
-							context.ReportDiagnostic(diagnostic);
-							return;
+			try {
+				if (context.Symbol is INamedTypeSymbol { ContainingNamespace: { } containingNamespace }) {
+					if (IsInternalNamespace(containingNamespace, out string fullNamespace)) {
+						switch (context.Symbol.DeclaredAccessibility) {
+							case Accessibility.Internal:
+							case Accessibility.Private:
+							case Accessibility.Protected:
+							case Accessibility.ProtectedAndInternal:
+								return;
+							default:
+								var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
+								context.ReportDiagnostic(diagnostic);
+								return;
+						}
 					}
 				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
 		private static void AnalyzeMemberAccessExpression(SyntaxNodeAnalysisContext context) {
-			if (context.Node is MemberAccessExpressionSyntax memberAccessExpressionSyntax) {
-				if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax) is SymbolInfo memberSymbolInfo
-					&& memberSymbolInfo.Symbol is ISymbol member
-					&& member.Kind == SymbolKind.Field
-					&& !member.IsStatic
-					&& member.DeclaredAccessibility == Accessibility.Private
-					&& memberAccessExpressionSyntax.Expression.ToString() != "this") {
-					var diagnostic = Diagnostic.Create(DoNotAccessPrivateFieldsOfAnotherObjectDirectly, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
-					context.ReportDiagnostic(diagnostic);
-				} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression) is SymbolInfo objSymbolInfo
-					&& objSymbolInfo.Symbol is ISymbol obj) {
-					if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Dispose"
-						&& context.Node.Parent is InvocationExpressionSyntax disposeInvocationSyntax
-						&& obj.Kind == SymbolKind.Field
-						&& obj.IsStatic
-						&& IsSymbolReadOnly(obj)) {
-						var diagnostic = Diagnostic.Create(DoNotCallDisposeOnStaticReadonlyFields, disposeInvocationSyntax.GetLocation(), obj.Name);
+			try {
+				if (context.Node is MemberAccessExpressionSyntax memberAccessExpressionSyntax) {
+					if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax) is SymbolInfo memberSymbolInfo
+						&& memberSymbolInfo.Symbol is ISymbol member
+						&& member.Kind == SymbolKind.Field
+						&& !member.IsStatic
+						&& member.DeclaredAccessibility == Accessibility.Private
+						&& memberAccessExpressionSyntax.Expression.ToString() != "this") {
+						var diagnostic = Diagnostic.Create(DoNotAccessPrivateFieldsOfAnotherObjectDirectly, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
-					} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Wait"
-						&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo waitSymbolInfo
-						&& waitSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-						&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
-						var diagnostic = Diagnostic.Create(DoNotCallTaskWaitToInvokeTask, waitInvocationSyntax.GetLocation());
-						context.ReportDiagnostic(diagnostic);
-					} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Result"
-						&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo resultSymbolInfo
-						&& resultSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-						&& !resultSymbolInfo.Symbol.IsStatic) {
-						var diagnostic = Diagnostic.Create(DoNotAccessTaskResultToInvokeTask, memberAccessExpressionSyntax.GetLocation());
-						context.ReportDiagnostic(diagnostic);
-					}
-				} 
+					} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression) is SymbolInfo objSymbolInfo
+						&& objSymbolInfo.Symbol is ISymbol obj) {
+						if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Dispose"
+							&& context.Node.Parent is InvocationExpressionSyntax disposeInvocationSyntax
+							&& obj.Kind == SymbolKind.Field
+							&& obj.IsStatic
+							&& IsSymbolReadOnly(obj)) {
+							var diagnostic = Diagnostic.Create(DoNotCallDisposeOnStaticReadonlyFields, disposeInvocationSyntax.GetLocation(), obj.Name);
+							context.ReportDiagnostic(diagnostic);
+						} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Wait"
+							&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo waitSymbolInfo
+							&& waitSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+							&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
+							var diagnostic = Diagnostic.Create(DoNotCallTaskWaitToInvokeTask, waitInvocationSyntax.GetLocation());
+							context.ReportDiagnostic(diagnostic);
+						} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Result"
+							&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo resultSymbolInfo
+							&& resultSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+							&& !resultSymbolInfo.Symbol.IsStatic) {
+							var diagnostic = Diagnostic.Create(DoNotAccessTaskResultToInvokeTask, memberAccessExpressionSyntax.GetLocation());
+							context.ReportDiagnostic(diagnostic);
+						}
+					} 
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
 		private static void AnalyzeTupleTypes(SyntaxNodeAnalysisContext context) {
-			if (context.Node is TupleTypeSyntax { Elements: { } tupleElements } tupleTypeSyntax) {
-				foreach (TupleElementSyntax tupleElementSyntax in tupleElements) {
-					if (tupleElementSyntax is { Identifier: { ValueText: string elementName } identifier }
-						&& !IsInPascalCase(elementName)) {
-						var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
-						context.ReportDiagnostic(diagnostic);
-					}
-				}
-			}
-		}
-
-		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
-			if (context.Node is InvocationExpressionSyntax { Expression: { } expression } invocationExpressionSyntax) {
-				if (context.SemanticModel.GetSymbolInfo(expression).Symbol is IMethodSymbol { Parameters: { }  methodParameters, ReturnType: { } methodReturnType }) {
-					var methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-					if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
-						&& callerParameters.Any(callerParameter => callerParameter.Type.ToString() is var type && (type == "CancellationToken" || type == "System.Threading.CancellationToken"))) {
-						if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count) {
-							foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
-								if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
-									&& overloadSymbol.ReturnType.Equals(methodReturnType)
-									&& overloadSymbol.Parameters.Last().Type.ToString() is var type
-									&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
-									bool signatureMatches = true;
-									for (int i = 0; i < methodParameters.Length; i++) {
-										if (!overloadSymbol.Parameters[i].Type.Equals(methodParameters[i].Type)) {
-											signatureMatches = false;
-										}
-									}
-									if (signatureMatches) {
-										var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
-										context.ReportDiagnostic(diagnostic);
-									}
-								}
-							}
-						} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
-							&& methodParameters.Last().Type.ToString() is var type
-							&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
-							var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+			try {
+				if (context.Node is TupleTypeSyntax { Elements: { } tupleElements } tupleTypeSyntax) {
+					foreach (TupleElementSyntax tupleElementSyntax in tupleElements) {
+						if (tupleElementSyntax is { Identifier: { ValueText: string elementName } identifier }
+							&& !IsInPascalCase(elementName)) {
+							var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
 							context.ReportDiagnostic(diagnostic);
 						}
 					}
 				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is InvocationExpressionSyntax { Expression: { } expression, ArgumentList: { Arguments: { } invocationArguments } } invocationExpressionSyntax) {
+					if (context.SemanticModel.GetSymbolInfo(expression) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
+						var methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+						if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
+							&& callerParameters.Any(callerParameter => callerParameter?.Type?.ToString() is string type && (type == "CancellationToken" || type == "System.Threading.CancellationToken"))) {
+							if (methodParameters.Length == invocationArguments.Count) {
+								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
+									if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
+										&& overloadSymbol.ReturnType.Equals(methodReturnType)
+										&& overloadSymbol.Parameters.Last()?.Type?.ToString() is string type
+										&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
+										bool signatureMatches = true;
+										for (int i = 0; i < methodParameters.Length; i++) {
+											if (!overloadSymbol.Parameters[i].Type.Equals(methodParameters[i].Type)) {
+												signatureMatches = false;
+											}
+										}
+										if (signatureMatches) {
+											var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+											context.ReportDiagnostic(diagnostic);
+										}
+									}
+								}
+							} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
+								&& methodParameters.Last()?.Type?.ToString() is string type
+								&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
+								var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
