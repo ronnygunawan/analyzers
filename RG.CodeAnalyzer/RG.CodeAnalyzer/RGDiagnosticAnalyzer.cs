@@ -138,9 +138,18 @@ namespace RG.CodeAnalyzer {
 				return kind == SyntaxKind.ForStatement
 					|| kind == SyntaxKind.ForEachStatement
 					|| kind == SyntaxKind.WhileStatement
-					|| kind == SyntaxKind.DoStatement;
+					|| kind == SyntaxKind.DoStatement
+					|| kind == SyntaxKind.MethodDeclaration
+					|| kind == SyntaxKind.ParenthesizedLambdaExpression
+					|| kind == SyntaxKind.SimpleLambdaExpression
+					|| kind == SyntaxKind.AnonymousMethodExpression;
 			});
-			if (loopNode != null) {
+			if (loopNode is { }
+				&& loopNode.Kind() is SyntaxKind kind
+				&& (kind == SyntaxKind.ForStatement
+					|| kind == SyntaxKind.ForEachStatement
+					|| kind == SyntaxKind.WhileStatement
+					|| kind == SyntaxKind.DoStatement)) {
 				var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, context.Node.GetLocation(), loopNode.Kind() switch
 				{
 					SyntaxKind.ForStatement => "for loop",
@@ -184,17 +193,19 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeNamedTypeDeclaration(SymbolAnalysisContext context) {
-			if (IsInternalNamespace(context.Symbol.ContainingNamespace, out string fullNamespace)) {
-				switch (context.Symbol.DeclaredAccessibility) {
-					case Accessibility.Internal:
-					case Accessibility.Private:
-					case Accessibility.Protected:
-					case Accessibility.ProtectedAndInternal:
-						return;
-					default:
-						var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
-						context.ReportDiagnostic(diagnostic);
-						return;
+			if (context.Symbol is INamedTypeSymbol { ContainingNamespace: { } containingNamespace }) {
+				if (IsInternalNamespace(containingNamespace, out string fullNamespace)) {
+					switch (context.Symbol.DeclaredAccessibility) {
+						case Accessibility.Internal:
+						case Accessibility.Private:
+						case Accessibility.Protected:
+						case Accessibility.ProtectedAndInternal:
+							return;
+						default:
+							var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
+							context.ReportDiagnostic(diagnostic);
+							return;
+					}
 				}
 			}
 		}
