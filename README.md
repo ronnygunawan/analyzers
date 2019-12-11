@@ -21,7 +21,7 @@ You can set the diagnostic severity to Error. This will prevent build from succe
 To learn more about changing diagnostic severity and suppressing warnings, visit: https://docs.microsoft.com/en-us/visualstudio/code-quality/use-roslyn-analyzers?view=vs-2019
 
 ## Analyzers:
-### 1. Do not await asynchronous operation inside a loop
+### 1. Do not `await` asynchronous operation inside a loop
 ```cs
 for (;;) {
     await Task.Delay(1000); // RG0001: Asynchronous operation awaited inside for loop.
@@ -40,7 +40,7 @@ do {
 } while (true);
 ```
 
-### 2. Do not return Task from a method that disposes object
+### 2. Do not return `Task` from a method that disposes object
 ```cs
 Task Foo() { // RG0002: Method 'Foo' disposes an object and shouldn't return Task.
     using var cts = new CancellationTokenSource();
@@ -56,7 +56,7 @@ namespace Foo.Internal.Models {
 }
 ```
 
-### 4. Do not access private fields using member access operator
+### 4. Do not access `private` fields using member access operator
 ```cs
 class Foo {
     private int x;
@@ -67,7 +67,7 @@ class Foo {
 }
 ```
 
-### 5. Do not call Dispose() on static readonly fields
+### 5. Do not call `Dispose()` on static readonly fields
 ```cs
 class Foo : IDisposable {
     private static readonly HttpClient _client = new HttpClient();_
@@ -78,7 +78,7 @@ class Foo : IDisposable {
 }
 ```
 
-### 6. Do not call Task.Wait() to invoke a Task
+### 6. Do not call `Task.Wait()` to invoke a `Task`
 ```cs
 class Program {
     static void Main() {
@@ -107,7 +107,7 @@ class Foo {
 (int a, string b) = (tuple.firstItem, tuple.secondItem);
 ```
 
-### 9. Use overload which accepts CancellationToken whenever possible
+### 9. Use overload which accepts `CancellationToken` whenever possible
 ```cs
 public async Task<List<Product>> GetAllAsync(int id, CancellationToken cancellationToken) {
     return await _dbContext.Products.ToListAsync(); // RG0009: This method has an overload that accepts CancellationToken.
