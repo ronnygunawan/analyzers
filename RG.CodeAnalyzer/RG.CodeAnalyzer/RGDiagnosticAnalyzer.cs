@@ -145,7 +145,6 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
 		}
 
-		[Obsolete("assdsada")]
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
