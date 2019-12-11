@@ -113,3 +113,9 @@ public async Task<List<Product>> GetAllAsync(int id, CancellationToken cancellat
     return await _dbContext.Products.ToListAsync(); // RG0009: This method has an overload that accepts CancellationToken.
 }
 ```
+
+### 10. `var`'s inferred type is obsolete
+```cs
+var obj = GetObjOfObsoleteClass(); // RG0010: 'ObsoleteClass' is obsolete.
+```
+

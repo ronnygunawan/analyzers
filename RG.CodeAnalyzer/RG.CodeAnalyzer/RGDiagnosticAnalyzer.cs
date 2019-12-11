@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -19,6 +20,7 @@ namespace RG.CodeAnalyzer {
 		public const string DoNotAccessTaskResultToInvokeTaskId = "RG0007";
 		public const string TupleElementNamesMustBeInPascalCaseId = "RG0008";
 		public const string NotUsingOverloadWithCancellationTokenId = "RG0009";
+		public const string VarInferredTypeIsObsoleteId = "RG0010";
 
 		private static readonly DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
 			id: NoAwaitInsideLoopId,
@@ -101,6 +103,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Not using overload with CancellationToken.");
 
+		private static readonly DiagnosticDescriptor VarInferredTypeIsObsolete = new DiagnosticDescriptor(
+			id: VarInferredTypeIsObsoleteId,
+			title: "Inferred type is obsolete.",
+			messageFormat: "'{0}' is obsolete{1}",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Inferred type is obsolete.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
 			get {
 				return ImmutableArray.Create(
@@ -112,7 +123,8 @@ namespace RG.CodeAnalyzer {
 					DoNotCallTaskWaitToInvokeTask,
 					DoNotAccessTaskResultToInvokeTask,
 					TupleElementNamesMustBeInPascalCase,
-					NotUsingOverloadWithCancellationToken
+					NotUsingOverloadWithCancellationToken,
+					VarInferredTypeIsObsolete
 				);
 			}
 		}
@@ -130,8 +142,10 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeMemberAccessExpression, SyntaxKind.SimpleMemberAccessExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
+			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
 		}
 
+		[Obsolete("assdsada")]
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
@@ -314,6 +328,42 @@ namespace RG.CodeAnalyzer {
 								context.ReportDiagnostic(diagnostic);
 							}
 						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeVariableDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is VariableDeclarationSyntax { Type: { IsVar: true } varNode } varDeclarationSyntax
+					&& context.SemanticModel.GetTypeInfo(varNode, context.CancellationToken) is { Type: INamedTypeSymbol typeSymbol }
+					&& typeSymbol.GetAttributes() is { } attributes
+					&& attributes.FirstOrDefault(attribute => attribute.AttributeClass.ToString() == "System.ObsoleteAttribute") is { ConstructorArguments: { } attributeArguments }) {
+					if (attributeArguments.Length > 0
+						&& attributeArguments[0].Value is { } messageArg
+						&& messageArg.ToString() is string message) {
+						if (attributeArguments.Length > 1
+							&& attributeArguments[1].Value is { } errorArg
+							&& errorArg is true) {
+							var diagnostic = Diagnostic.Create(
+								id: VarInferredTypeIsObsoleteId,
+								category: VarInferredTypeIsObsolete.Category,
+								message: string.Format(CultureInfo.InvariantCulture, VarInferredTypeIsObsolete.MessageFormat.ToString(CultureInfo.InvariantCulture), typeSymbol.Name, $": '{message}'"),
+								severity: DiagnosticSeverity.Error,
+								defaultSeverity: VarInferredTypeIsObsolete.DefaultSeverity,
+								isEnabledByDefault: VarInferredTypeIsObsolete.IsEnabledByDefault,
+								warningLevel: 0,
+								location: varNode.GetLocation());
+							context.ReportDiagnostic(diagnostic);
+						} else {
+							var diagnostic = Diagnostic.Create(VarInferredTypeIsObsolete, varNode.GetLocation(), typeSymbol.Name, $": '{message}'");
+							context.ReportDiagnostic(diagnostic);
+						}
+					} else {
+						var diagnostic = Diagnostic.Create(VarInferredTypeIsObsolete, varNode.GetLocation(), typeSymbol.Name, ".");
+						context.ReportDiagnostic(diagnostic);
 					}
 				}
 			} catch (Exception exc) {
