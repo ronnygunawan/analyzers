@@ -119,3 +119,7 @@ public async Task<List<Product>> GetAllAsync(int id, CancellationToken cancellat
 var obj = GetObjOfObsoleteClass(); // RG0010: 'ObsoleteClass' is obsolete.
 ```
 
+### 11. Interfaces shouldn't derive from IDisposable
+```cs
+interface I : IDisposable { } // RG0011: 'I' derives from IDisposable.
+```

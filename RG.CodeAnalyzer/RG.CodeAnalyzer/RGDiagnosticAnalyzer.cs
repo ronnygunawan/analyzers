@@ -21,6 +21,7 @@ namespace RG.CodeAnalyzer {
 		public const string TupleElementNamesMustBeInPascalCaseId = "RG0008";
 		public const string NotUsingOverloadWithCancellationTokenId = "RG0009";
 		public const string VarInferredTypeIsObsoleteId = "RG0010";
+		public const string InterfacesShouldntDeriveFromIDisposableId = "RG0011";
 
 		private static readonly DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
 			id: NoAwaitInsideLoopId,
@@ -112,6 +113,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Inferred type is obsolete.");
 
+		private static readonly DiagnosticDescriptor InterfacesShouldntDeriveFromIDisposable = new DiagnosticDescriptor(
+			id: InterfacesShouldntDeriveFromIDisposableId,
+			title: "Interfaces shouldn't derive from IDisposable.",
+			messageFormat: "'{0}' derives from IDisposable.",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Interfaces shouldn't derive from IDisposable.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
 			get {
 				return ImmutableArray.Create(
@@ -124,7 +134,8 @@ namespace RG.CodeAnalyzer {
 					DoNotAccessTaskResultToInvokeTask,
 					TupleElementNamesMustBeInPascalCase,
 					NotUsingOverloadWithCancellationToken,
-					VarInferredTypeIsObsolete
+					VarInferredTypeIsObsolete,
+					InterfacesShouldntDeriveFromIDisposable
 				);
 			}
 		}
@@ -143,6 +154,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
+			context.RegisterSyntaxNodeAction(AnalyzeInterfaceDeclarations, SyntaxKind.InterfaceDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -282,7 +294,7 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeTupleTypes(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is TupleTypeSyntax { Elements: { } tupleElements } tupleTypeSyntax) {
-					foreach (TupleElementSyntax tupleElementSyntax in tupleElements) {
+					foreach (TupleElementSyntax tupleElementSyntax in tupleElements.ToImmutableArray()) {
 						if (tupleElementSyntax is { Identifier: { ValueText: string elementName } identifier }
 							&& !IsInPascalCase(elementName)) {
 							var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
@@ -362,6 +374,19 @@ namespace RG.CodeAnalyzer {
 						}
 					} else {
 						var diagnostic = Diagnostic.Create(VarInferredTypeIsObsolete, varNode.GetLocation(), typeSymbol.Name, ".");
+						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeInterfaceDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is InterfaceDeclarationSyntax { BaseList: { Types: var baseTypes } } declaration) {
+					if (baseTypes.Any(baseType => baseType.Type.ToString() == "IDisposable")) {
+						var diagnostic = Diagnostic.Create(InterfacesShouldntDeriveFromIDisposable, declaration.GetLocation(), declaration.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
 					}
 				}
