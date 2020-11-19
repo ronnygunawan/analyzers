@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>RG.CodeAnalyzer</PackageId>
-    <PackageVersion>1.0.14.0</PackageVersion>
+    <PackageVersion>1.0.15.0</PackageVersion>
     <Authors>Ronny Gunawan</Authors>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/ronnygunawan/analyzers</PackageProjectUrl>
@@ -19,11 +19,11 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Description>RG.CodeAnalyzer</Description>
     <PackageReleaseNotes></PackageReleaseNotes>
-    <Copyright>(C) 2019 Ronny Gunawan</Copyright>
+    <Copyright>(C) 2019-2020 Ronny Gunawan</Copyright>
     <PackageTags>analyzers</PackageTags>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.0.14</Version>
+    <Version>1.0.15</Version>
   </PropertyGroup>
 
   <ItemGroup>

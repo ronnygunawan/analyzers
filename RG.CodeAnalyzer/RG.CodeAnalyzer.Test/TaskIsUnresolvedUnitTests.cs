@@ -36,7 +36,7 @@ namespace RG.CodeAnalyzer.Test {
     }";
 			DiagnosticResult expected = new() {
 				Id = "RG0012",
-				Message = "Task is unresolved",
+				Message = "Unresolved TODO: Implement method",
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {

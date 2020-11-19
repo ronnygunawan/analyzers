@@ -127,7 +127,7 @@ namespace RG.CodeAnalyzer {
 		private static readonly DiagnosticDescriptor UNRESOLVED_TASK = new(
 			id: UNRESOLVED_TASK_ID,
 			title: "Task is unresolved",
-			messageFormat: "Task is unresolved",
+			messageFormat: "Unresolved {0}",
 			category: "Maintainability",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
@@ -457,7 +457,7 @@ namespace RG.CodeAnalyzer {
 							|| commentText.StartsWith("//TODO", StringComparison.CurrentCulture)
 							|| commentText.StartsWith("// HACK", StringComparison.CurrentCulture)
 							|| commentText.StartsWith("//HACK", StringComparison.CurrentCulture)) {
-							Diagnostic diagnostic = Diagnostic.Create(UNRESOLVED_TASK, singleLineCommentTrivia.GetLocation());
+							Diagnostic diagnostic = Diagnostic.Create(UNRESOLVED_TASK, singleLineCommentTrivia.GetLocation(), commentText.Substring(2).TrimStart());
 							context.ReportDiagnostic(diagnostic);
 						}
 					}
