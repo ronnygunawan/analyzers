@@ -238,7 +238,8 @@ namespace RG.CodeAnalyzer {
 
 		private static void AnalyzeUsingDeclarationStatement(SyntaxNodeAnalysisContext context) {
 			try {
-				if (context.Node is LocalDeclarationStatementSyntax { UsingKeyword: { } usingKeyword } localDeclarationStatementSyntax) {
+				if (context.Node is LocalDeclarationStatementSyntax { UsingKeyword: { } usingKeyword } localDeclarationStatementSyntax
+					&& usingKeyword.Kind() == SyntaxKind.UsingKeyword){
 					SyntaxNode methodNode = localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
 						return ancestor.Kind()
 							is SyntaxKind.MethodDeclaration

@@ -281,6 +281,30 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpFix(test, fixtest);
 		}
 
+		[TestMethod]
+		public void TestMethod7() {
+			string test = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+
+    namespace ConsoleApplication1
+    {
+        class TypeName
+        {
+            public Task<int> MethodName()
+            {
+                int i = 0;
+                return Task.FromResult(0);
+            }
+        }
+    }";
+			VerifyCSharpDiagnostic(test);
+		}
+
 		protected override CodeFixProvider GetCSharpCodeFixProvider() {
 			return new MakeMethodAsyncCodeFixProvider();
 		}
