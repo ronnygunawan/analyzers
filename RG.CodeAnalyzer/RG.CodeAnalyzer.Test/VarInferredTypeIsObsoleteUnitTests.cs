@@ -1,7 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -10,14 +9,14 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -45,9 +44,9 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0010",
-				Message = String.Format("'{0}' is obsolete.", "A"),
+				Message = string.Format("'{0}' is obsolete.", "A"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -58,9 +57,9 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpDiagnostic(test, expected);
 		}
 
-        [TestMethod]
-        public void TestMethod3() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod3() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -88,22 +87,22 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            var expected = new DiagnosticResult {
-                Id = "RG0010",
-                Message = String.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
-                Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 24, 17)
-                        }
-            };
+			DiagnosticResult expected = new() {
+				Id = "RG0010",
+				Message = string.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+							new DiagnosticResultLocation("Test0.cs", 24, 17)
+						}
+			};
 
-            VerifyCSharpDiagnostic(test, expected);
-        }
+			VerifyCSharpDiagnostic(test, expected);
+		}
 
-        [TestMethod]
-        public void TestMethod4() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod4() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -131,22 +130,22 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            var expected = new DiagnosticResult {
-                Id = "RG0010",
-                Message = String.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
-                Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 24, 17)
-                        }
-            };
+			DiagnosticResult expected = new() {
+				Id = "RG0010",
+				Message = string.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+							new DiagnosticResultLocation("Test0.cs", 24, 17)
+						}
+			};
 
-            VerifyCSharpDiagnostic(test, expected);
-        }
+			VerifyCSharpDiagnostic(test, expected);
+		}
 
-        [TestMethod]
-        public void TestMethod5() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod5() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -174,20 +173,20 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            var expected = new DiagnosticResult {
-                Id = "RG0010",
-                Message = String.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
-                Severity = DiagnosticSeverity.Error,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 24, 17)
-                        }
-            };
+			DiagnosticResult expected = new() {
+				Id = "RG0010",
+				Message = string.Format("'{0}' is obsolete: '{1}'", "A", "Do not use"),
+				Severity = DiagnosticSeverity.Error,
+				Locations =
+					new[] {
+							new DiagnosticResultLocation("Test0.cs", 24, 17)
+						}
+			};
 
-            VerifyCSharpDiagnostic(test, expected);
-        }
+			VerifyCSharpDiagnostic(test, expected);
+		}
 
-        protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
+		protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
 			return new RGDiagnosticAnalyzer();
 		}
 	}

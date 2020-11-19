@@ -2,7 +2,6 @@
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -11,14 +10,14 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -32,9 +31,9 @@ namespace RG.CodeAnalyzer.Test {
         {
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0003",
-				Message = String.Format("Identifier '{0}' is declared in '{1}' namespace, and thus must be declared internal.", "TypeName", "ConsoleApplication1.Internal.Models"),
+				Message = string.Format("Identifier '{0}' is declared in '{1}' namespace, and thus must be declared internal", "TypeName", "ConsoleApplication1.Internal.Models"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
@@ -44,7 +43,7 @@ namespace RG.CodeAnalyzer.Test {
 
 			VerifyCSharpDiagnostic(test, expected);
 
-			var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;

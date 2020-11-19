@@ -1,7 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -10,14 +9,14 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -38,9 +37,9 @@ namespace RG.CodeAnalyzer.Test {
 			}
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0004",
-				Message = String.Format("Private field '{0}' should not be accessed directly.", "_count"),
+				Message = string.Format("Private field '{0}' should not be accessed directly", "_count"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {

@@ -2,9 +2,6 @@
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -12,14 +9,14 @@ namespace RG.CodeAnalyzer.Test {
 	public class TupleElementNamesMustBeInPascalCaseUnitTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -38,18 +35,18 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			var expected1 = new DiagnosticResult {
+			DiagnosticResult expected1 = new() {
 				Id = "RG0008",
-				Message = String.Format("'{0}' is not a proper name of a tuple element. Change it to PascalCase.", "firstItem"),
+				Message = string.Format("'{0}' is not a proper name of a tuple element; Change it to PascalCase", "firstItem"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
 						new DiagnosticResultLocation("Test0.cs", 15, 18)
 					}
 			};
-            var expected2 = new DiagnosticResult {
+			DiagnosticResult expected2 = new() {
 				Id = "RG0008",
-				Message = String.Format("'{0}' is not a proper name of a tuple element. Change it to PascalCase.", "secondItem"),
+				Message = string.Format("'{0}' is not a proper name of a tuple element; Change it to PascalCase", "secondItem"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {

@@ -1,7 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -9,14 +8,14 @@ namespace RG.CodeAnalyzer.Test {
 	public class DoNotCallDisposeOnStaticReadonlyFieldsTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -38,9 +37,9 @@ namespace RG.CodeAnalyzer.Test {
 			}
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0005",
-				Message = String.Format("Field '{0}' is marked 'static readonly' and should not be disposed.", "_client"),
+				Message = string.Format("Field '{0}' is marked 'static readonly' and should not be disposed", "_client"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {

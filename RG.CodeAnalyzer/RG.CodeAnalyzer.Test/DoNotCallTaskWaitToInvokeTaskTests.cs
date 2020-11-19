@@ -1,7 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -9,14 +8,14 @@ namespace RG.CodeAnalyzer.Test {
 	public class DoNotCallTaskWaitToInvokeTaskTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -35,9 +34,9 @@ namespace RG.CodeAnalyzer.Test {
 			}
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0006",
-				Message = String.Format("Calling Task.Wait() blocks current thread and is not recommended. Use await instead."),
+				Message = string.Format("Calling Task.Wait() blocks current thread and is not recommended; Use await instead"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {

@@ -5,18 +5,18 @@ using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
-    [TestClass]
+	[TestClass]
 	public class InterfacesShouldntDeriveFromIDisposableTests : CodeFixVerifier {
-        [TestMethod]
-        public void TestMethod1() {
-            var test = @"";
+		[TestMethod]
+		public void TestMethod1() {
+			string test = @"";
 
-            VerifyCSharpDiagnostic(test);
-        }
+			VerifyCSharpDiagnostic(test);
+		}
 
-        [TestMethod]
-        public void TestMethod2() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod2() {
+			string test = @"
     using System;
 
     namespace ConsoleApplication1
@@ -25,12 +25,12 @@ namespace RG.CodeAnalyzer.Test {
         interface J : IEnumerable { }
     }";
 
-            VerifyCSharpDiagnostic(test);
-        }
+			VerifyCSharpDiagnostic(test);
+		}
 
-        [TestMethod]
-        public void TestMethod3() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod3() {
+			string test = @"
     using System;
 
     namespace ConsoleApplication1
@@ -38,30 +38,30 @@ namespace RG.CodeAnalyzer.Test {
         interface I : IDisposable { }
         interface J : IEnumerable, IDisposable { }
     }";
-            var expected1 = new DiagnosticResult {
-                Id = "RG0011",
-                Message = String.Format("'{0}' derives from IDisposable.", "I"),
-                Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 6, 9)
-                        }
-            };
-            var expected2 = new DiagnosticResult {
-                Id = "RG0011",
-                Message = String.Format("'{0}' derives from IDisposable.", "J"),
-                Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                            new DiagnosticResultLocation("Test0.cs", 7, 9)
-                        }
-            };
+			DiagnosticResult expected1 = new() {
+				Id = "RG0011",
+				Message = string.Format("'{0}' derives from IDisposable", "I"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+							new DiagnosticResultLocation("Test0.cs", 6, 9)
+						}
+			};
+			DiagnosticResult expected2 = new() {
+				Id = "RG0011",
+				Message = string.Format("'{0}' derives from IDisposable", "J"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+							new DiagnosticResultLocation("Test0.cs", 7, 9)
+						}
+			};
 
-            VerifyCSharpDiagnostic(test, expected1, expected2);
-        }
+			VerifyCSharpDiagnostic(test, expected1, expected2);
+		}
 
-        protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
-            return new RGDiagnosticAnalyzer();
-        }
-    }
+		protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
+			return new RGDiagnosticAnalyzer();
+		}
+	}
 }

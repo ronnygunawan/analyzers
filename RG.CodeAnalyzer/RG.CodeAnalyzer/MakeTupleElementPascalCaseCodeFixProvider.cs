@@ -1,5 +1,4 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Rename;
@@ -12,18 +11,16 @@ using System.Threading.Tasks;
 namespace RG.CodeAnalyzer {
 	[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MakeTupleElementPascalCaseCodeFixProvider)), Shared]
 	public class MakeTupleElementPascalCaseCodeFixProvider : CodeFixProvider {
-		private const string MakeElementNamePascalCaseTitle = "Rename to pascal case";
+		//private const string MAKE_ELEMENT_NAME_PASCAL_CASE_TITLE = "Rename to pascal case";
 
-		public override ImmutableArray<string> FixableDiagnosticIds {
-			get {
-				return ImmutableArray.Create(RGDiagnosticAnalyzer.TupleElementNamesMustBeInPascalCaseId);
-			}
-		}
+		public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(RGDiagnosticAnalyzer.TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE_ID);
 
 		public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
-		public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {
-			var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+		public sealed override Task RegisterCodeFixesAsync(CodeFixContext context) {
+			return Task.CompletedTask;
+
+			//SyntaxNode root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 
 			// Disabled until following issue is fixed:
 			// https://github.com/dotnet/roslyn/issues/14115
@@ -44,16 +41,26 @@ namespace RG.CodeAnalyzer {
 			//}
 		}
 
-		private async Task<Solution> MakeElementNamePascalCaseAsync(Document document, TupleElementSyntax tupleElement, CancellationToken cancellationToken) {
-			var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-			var elementName = tupleElement.Identifier.ValueText;
+		private static async Task<Solution> MakeElementNamePascalCaseAsync(Document document, TupleElementSyntax tupleElement, CancellationToken cancellationToken) {
+			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+
+			if (root is null) return document.Project.Solution;
+
+			string elementName = tupleElement.Identifier.ValueText;
+
 			if (RGDiagnosticAnalyzer.IsInCamelCase(elementName)
 				&& tupleElement.Ancestors().OfType<TupleTypeSyntax>().FirstOrDefault() is TupleTypeSyntax tupleTypeSyntax) {
-				var pascalCase = RGDiagnosticAnalyzer.ToPascalCase(elementName);
-				var semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
-				var tupleSymbol = semanticModel.GetSymbolInfo(tupleTypeSyntax, cancellationToken).Symbol as INamedTypeSymbol;
-				var fieldSymbol = tupleSymbol.TupleElements.Single(element => element.Name == elementName);
-				var solution = document.Project.Solution;
+				string pascalCase = RGDiagnosticAnalyzer.ToPascalCase(elementName);
+				SemanticModel? semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+
+				if (semanticModel is null) return document.Project.Solution;
+				if (semanticModel.GetSymbolInfo(tupleTypeSyntax, cancellationToken).Symbol is not INamedTypeSymbol tupleSymbol) return document.Project.Solution;
+
+				IFieldSymbol? fieldSymbol = tupleSymbol.TupleElements.FirstOrDefault(element => element.Name == elementName);
+
+				if (fieldSymbol is null) return document.Project.Solution;
+
+				Solution solution = document.Project.Solution;
 				return await Renamer.RenameSymbolAsync(solution, fieldSymbol, pascalCase, solution.Workspace.Options, cancellationToken).ConfigureAwait(false);
 			} else {
 				return document.Project.Solution;

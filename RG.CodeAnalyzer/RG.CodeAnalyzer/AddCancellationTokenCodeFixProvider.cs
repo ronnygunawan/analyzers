@@ -13,36 +13,37 @@ namespace RG.CodeAnalyzer {
 
 	[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AddCancellationTokenCodeFixProvider)), Shared]
 	public class AddCancellationTokenCodeFixProvider : CodeFixProvider {
-		private const string AddCancellationTokenTitle = "Add cancellation token";
+		private const string ADD_CANCELLATION_TOKEN_TITLE = "Add cancellation token";
 
-		public override ImmutableArray<string> FixableDiagnosticIds {
-			get {
-				return ImmutableArray.Create(RGDiagnosticAnalyzer.NotUsingOverloadWithCancellationTokenId);
-			}
-		}
+		public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(RGDiagnosticAnalyzer.NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN_ID);
 
 		public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
 		public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {
-			var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+			SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+
+			if (root is null) return;
 
 			if (context.Diagnostics.FirstOrDefault() is { Location: { SourceSpan: { Start: { } spanStart } } } diagnostic) {
-				if (root.FindToken(spanStart).Parent.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault() is InvocationExpressionSyntax invocation) {
+				if (root.FindToken(spanStart).Parent?.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault() is InvocationExpressionSyntax invocation) {
 					context.RegisterCodeFix(
 						CodeAction.Create(
-							title: AddCancellationTokenTitle,
+							title: ADD_CANCELLATION_TOKEN_TITLE,
 							createChangedDocument: c => AddCancellationTokenAsync(context.Document, invocation, c),
-							equivalenceKey: AddCancellationTokenTitle),
+							equivalenceKey: ADD_CANCELLATION_TOKEN_TITLE),
 						diagnostic: diagnostic);
 				}
 			}
 		}
 
-		private async Task<Document> AddCancellationTokenAsync(Document document, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) {
-			var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+		private static async Task<Document> AddCancellationTokenAsync(Document document, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) {
+			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+
+			if (root is null) return document;
+
 			if (invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault() is { ParameterList: { Parameters: { } callerParameters } }
-				&& callerParameters.FirstOrDefault(parameter => parameter?.Type?.ToString() is string type
-					&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")
+				&& callerParameters.FirstOrDefault(parameter => parameter.Type?.ToString() is string type
+					&& (type is "CancellationToken" or "System.Threading.CancellationToken")
 				) is { } parameter) {
 				return document.WithSyntaxRoot(
 					root: root.ReplaceNode(

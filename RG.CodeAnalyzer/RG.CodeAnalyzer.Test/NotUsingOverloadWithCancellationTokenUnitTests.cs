@@ -2,9 +2,6 @@
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -12,14 +9,14 @@ namespace RG.CodeAnalyzer.Test {
 	public class NotUsingOverloadWithCancellationTokenUnitTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -42,10 +39,10 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0009",
-				Message = "This method has an overload that accepts CancellationToken.",
-                Severity = DiagnosticSeverity.Warning,
+				Message = "This method has an overload that accepts CancellationToken",
+				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
 						new DiagnosticResultLocation("Test0.cs", 16, 23)
@@ -54,7 +51,7 @@ namespace RG.CodeAnalyzer.Test {
 
 			VerifyCSharpDiagnostic(test, expected);
 
-			var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -77,12 +74,12 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            VerifyCSharpFix(test, fixtest);
+			VerifyCSharpFix(test, fixtest);
 		}
 
-        [TestMethod]
-        public void TestMethod3() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod3() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -109,12 +106,12 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            VerifyCSharpDiagnostic(test);
-        }
+			VerifyCSharpDiagnostic(test);
+		}
 
-        [TestMethod]
-        public void TestMethod4() {
-            var test = @"
+		[TestMethod]
+		public void TestMethod4() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -141,19 +138,19 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            var expected = new DiagnosticResult {
-                Id = "RG0009",
-                Message = "This method has an overload that accepts CancellationToken.",
-                Severity = DiagnosticSeverity.Warning,
-                Locations =
-                    new[] {
-                        new DiagnosticResultLocation("Test0.cs", 16, 23)
-                    }
-            };
+			DiagnosticResult expected = new() {
+				Id = "RG0009",
+				Message = "This method has an overload that accepts CancellationToken",
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 16, 23)
+					}
+			};
 
-            VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test, expected);
 
-            var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -180,10 +177,10 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-            VerifyCSharpFix(test, fixtest);
-        }
+			VerifyCSharpFix(test, fixtest);
+		}
 
-        protected override CodeFixProvider GetCSharpCodeFixProvider() {
+		protected override CodeFixProvider GetCSharpCodeFixProvider() {
 			return new AddCancellationTokenCodeFixProvider();
 		}
 

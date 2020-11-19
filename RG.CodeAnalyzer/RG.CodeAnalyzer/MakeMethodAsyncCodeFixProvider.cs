@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
@@ -12,42 +13,49 @@ using System.Threading.Tasks;
 namespace RG.CodeAnalyzer {
 	[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MakeMethodAsyncCodeFixProvider)), Shared]
 	public class MakeMethodAsyncCodeFixProvider : CodeFixProvider {
-		private const string MakeMethodAsyncTitle = "Make method async";
+		private const string MAKE_METHOD_ASYNC_TITLE = "Make method async";
 
-		public override ImmutableArray<string> FixableDiagnosticIds {
-			get {
-				return ImmutableArray.Create(RGDiagnosticAnalyzer.DontReturnTaskIfMethodDisposesObjectId);
-			}
-		}
+		public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(RGDiagnosticAnalyzer.DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT_ID);
 
 		public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
 		public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {
-			var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+			SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 
-			var diagnostic = context.Diagnostics.First();
-			var diagnosticSpan = diagnostic.Location.SourceSpan;
+			if (root is null) return;
 
-			if (root.FindToken(diagnosticSpan.Start).Parent.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault() is MethodDeclarationSyntax declaration) {
+			Diagnostic? diagnostic = context.Diagnostics.FirstOrDefault();
+
+			if (diagnostic is null) return;
+
+			TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
+
+			if (root.FindToken(diagnosticSpan.Start).Parent?.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault() is MethodDeclarationSyntax declaration) {
 				context.RegisterCodeFix(
 					CodeAction.Create(
-						title: MakeMethodAsyncTitle,
+						title: MAKE_METHOD_ASYNC_TITLE,
 						createChangedDocument: c => MakeMethodAsyncAsync(context.Document, declaration, c),
-						equivalenceKey: MakeMethodAsyncTitle),
+						equivalenceKey: MAKE_METHOD_ASYNC_TITLE),
 					diagnostic: diagnostic);
 			}
 		}
 
-		private async Task<Document> MakeMethodAsyncAsync(Document document, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken) {
-			var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-			var newModifiers = SyntaxFactory.TokenList(methodDecl.Modifiers).Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
-			var newMethodDecl = methodDecl.WithModifiers(newModifiers);
-			var newRoot = root.ReplaceNode(methodDecl, newMethodDecl);
+		private static async Task<Document> MakeMethodAsyncAsync(Document document, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken) {
+			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+
+			if (root is null) return document;
+
+			SyntaxTokenList newModifiers = SyntaxFactory.TokenList(methodDecl.Modifiers).Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
+			MethodDeclarationSyntax newMethodDecl = methodDecl.WithModifiers(newModifiers);
+			SyntaxNode newRoot = root.ReplaceNode(methodDecl, newMethodDecl);
+
 			while (newRoot.DescendantNodes().OfType<ReturnStatementSyntax>().FirstOrDefault() is ReturnStatementSyntax returnStatement
-				&& returnStatement.Expression.Kind() != SyntaxKind.AwaitExpression) {
-				newRoot = newRoot.ReplaceNode(returnStatement, returnStatement.WithExpression(SyntaxFactory.AwaitExpression(returnStatement.Expression)));
+				&& returnStatement.Expression is { } returnExpression
+				&& returnExpression.Kind() != SyntaxKind.AwaitExpression) {
+				newRoot = newRoot.ReplaceNode(returnStatement, returnStatement.WithExpression(SyntaxFactory.AwaitExpression(returnExpression)));
 			}
-			var newDocument = document.WithSyntaxRoot(newRoot);
+
+			Document newDocument = document.WithSyntaxRoot(newRoot);
 			return newDocument;
 		}
 	}

@@ -11,144 +11,139 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace RG.CodeAnalyzer {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
 	public class RGDiagnosticAnalyzer : DiagnosticAnalyzer {
-		public const string NoAwaitInsideLoopId = "RG0001";
-		public const string DontReturnTaskIfMethodDisposesObjectId = "RG0002";
-		public const string IdentifiersInInternalNamespaceMustBeInternalId = "RG0003";
-		public const string DoNotAccessPrivateFieldsOfAnotherObjectDirectlyId = "RG0004";
-		public const string DoNotCallDisposeOnStaticReadonlyFieldsId = "RG0005";
-		public const string DoNotCallTaskWaitToInvokeTaskId = "RG0006";
-		public const string DoNotAccessTaskResultToInvokeTaskId = "RG0007";
-		public const string TupleElementNamesMustBeInPascalCaseId = "RG0008";
-		public const string NotUsingOverloadWithCancellationTokenId = "RG0009";
-		public const string VarInferredTypeIsObsoleteId = "RG0010";
-		public const string InterfacesShouldntDeriveFromIDisposableId = "RG0011";
+		public const string NO_AWAIT_INSIDE_LOOP_ID = "RG0001";
+		public const string DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT_ID = "RG0002";
+		public const string IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL_ID = "RG0003";
+		public const string DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY_ID = "RG0004";
+		public const string DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS_ID = "RG0005";
+		public const string DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK_ID = "RG0006";
+		public const string DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK_ID = "RG0007";
+		public const string TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE_ID = "RG0008";
+		public const string NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN_ID = "RG0009";
+		public const string VAR_INFERRED_TYPE_IS_OBSOLETE_ID = "RG0010";
+		public const string INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE_ID = "RG0011";
 
-		private static readonly DiagnosticDescriptor NoAwaitInsideLoop = new DiagnosticDescriptor(
-			id: NoAwaitInsideLoopId,
-			title: "Do not await inside a loop.",
-			messageFormat: "Asynchronous operation awaited inside {0}.",
+		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
+			id: NO_AWAIT_INSIDE_LOOP_ID,
+			title: "Do not await inside a loop",
+			messageFormat: "Asynchronous operation awaited inside {0}",
 			category: "Performance",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not await inside a loop. Perform asynchronous operations in a batch instead.");
 
-		private static readonly DiagnosticDescriptor DontReturnTaskIfMethodDisposesObject = new DiagnosticDescriptor(
-			id: DontReturnTaskIfMethodDisposesObjectId,
-			title: "Do not return Task from a method that disposes object.",
-			messageFormat: "Method '{0}' disposes an object and shouldn't return Task.",
+		private static readonly DiagnosticDescriptor DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT = new(
+			id: DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT_ID,
+			title: "Do not return Task from a method that disposes object",
+			messageFormat: "Method '{0}' disposes an object and shouldn't return Task",
 			category: "Reliability",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not return Task from a method that disposes an object. Mark method as async instead.");
 
-		private static readonly DiagnosticDescriptor IdentifiersInInternalNamespaceMustBeInternal = new DiagnosticDescriptor(
-			id: IdentifiersInInternalNamespaceMustBeInternalId,
-			title: "Identifiers declared in Internal namespace must be internal.",
-			messageFormat: "Identifier '{0}' is declared in '{1}' namespace, and thus must be declared internal.",
+		private static readonly DiagnosticDescriptor IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL = new(
+			id: IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL_ID,
+			title: "Identifiers declared in Internal namespace must be internal",
+			messageFormat: "Identifier '{0}' is declared in '{1}' namespace, and thus must be declared internal",
 			category: "Security",
 			defaultSeverity: DiagnosticSeverity.Error,
 			isEnabledByDefault: true,
 			description: "Identifiers declared in Internal namespace must be internal.");
 
-		private static readonly DiagnosticDescriptor DoNotAccessPrivateFieldsOfAnotherObjectDirectly = new DiagnosticDescriptor(
-			id: DoNotAccessPrivateFieldsOfAnotherObjectDirectlyId,
-			title: "Do not access private fields of another object directly.",
-			messageFormat: "Private field '{0}' should not be accessed directly.",
+		private static readonly DiagnosticDescriptor DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY = new(
+			id: DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY_ID,
+			title: "Do not access private fields of another object directly",
+			messageFormat: "Private field '{0}' should not be accessed directly",
 			category: "Code Quality",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not access private fields of another object directly.");
 
-		private static readonly DiagnosticDescriptor DoNotCallDisposeOnStaticReadonlyFields = new DiagnosticDescriptor(
-			id: DoNotCallDisposeOnStaticReadonlyFieldsId,
-			title: "Do not call Dispose() on static readonly fields.",
-			messageFormat: "Field '{0}' is marked 'static readonly' and should not be disposed.",
+		private static readonly DiagnosticDescriptor DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS = new(
+			id: DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS_ID,
+			title: "Do not call Dispose() on static readonly fields",
+			messageFormat: "Field '{0}' is marked 'static readonly' and should not be disposed",
 			category: "Reliability",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not call Dispose() on static readonly fields.");
 
-		private static readonly DiagnosticDescriptor DoNotCallTaskWaitToInvokeTask = new DiagnosticDescriptor(
-			id: DoNotCallTaskWaitToInvokeTaskId,
-			title: "Do not call Task.Wait() to invoke a Task.",
-			messageFormat: "Calling Task.Wait() blocks current thread and is not recommended. Use await instead.",
+		private static readonly DiagnosticDescriptor DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK = new(
+			id: DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK_ID,
+			title: "Do not call Task.Wait() to invoke a Task",
+			messageFormat: "Calling Task.Wait() blocks current thread and is not recommended; Use await instead",
 			category: "Performance",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not call Task.Wait() to invoke a Task. Use await instead.");
 
-		private static readonly DiagnosticDescriptor DoNotAccessTaskResultToInvokeTask = new DiagnosticDescriptor(
-			id: DoNotAccessTaskResultToInvokeTaskId,
-			title: "Do not access Task<>.Result to invoke a Task.",
-			messageFormat: "Accessing Task<>.Result blocks current thread and is not recommended. Use await instead.",
+		private static readonly DiagnosticDescriptor DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK = new(
+			id: DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK_ID,
+			title: "Do not access Task<>.Result to invoke a Task",
+			messageFormat: "Accessing Task<>.Result blocks current thread and is not recommended; Use await instead",
 			category: "Performance",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Do not access Task<>.Result to invoke a Task. Use await instead.");
 
-		private static readonly DiagnosticDescriptor TupleElementNamesMustBeInPascalCase = new DiagnosticDescriptor(
-			id: TupleElementNamesMustBeInPascalCaseId,
-			title: "Tuple element names must be in Pascal case.",
-			messageFormat: "'{0}' is not a proper name of a tuple element. Change it to PascalCase.",
+		private static readonly DiagnosticDescriptor TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE = new(
+			id: TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE_ID,
+			title: "Tuple element names must be in Pascal case",
+			messageFormat: "'{0}' is not a proper name of a tuple element; Change it to PascalCase",
 			category: "Code Style",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Tuple element names must be in Pascal case.");
 
-		private static readonly DiagnosticDescriptor NotUsingOverloadWithCancellationToken = new DiagnosticDescriptor(
-			id: NotUsingOverloadWithCancellationTokenId,
-			title: "Not using overload with CancellationToken.",
-			messageFormat: "This method has an overload that accepts CancellationToken.",
+		private static readonly DiagnosticDescriptor NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN = new(
+			id: NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN_ID,
+			title: "Not using overload with CancellationToken",
+			messageFormat: "This method has an overload that accepts CancellationToken",
 			category: "Performance",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Not using overload with CancellationToken.");
 
-		private static readonly DiagnosticDescriptor VarInferredTypeIsObsolete = new DiagnosticDescriptor(
-			id: VarInferredTypeIsObsoleteId,
-			title: "Inferred type is obsolete.",
+		private static readonly DiagnosticDescriptor VAR_INFERRED_TYPE_IS_OBSOLETE = new(
+			id: VAR_INFERRED_TYPE_IS_OBSOLETE_ID,
+			title: "Inferred type is obsolete",
 			messageFormat: "'{0}' is obsolete{1}",
 			category: "Code Quality",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Inferred type is obsolete.");
 
-		private static readonly DiagnosticDescriptor InterfacesShouldntDeriveFromIDisposable = new DiagnosticDescriptor(
-			id: InterfacesShouldntDeriveFromIDisposableId,
-			title: "Interfaces shouldn't derive from IDisposable.",
-			messageFormat: "'{0}' derives from IDisposable.",
+		private static readonly DiagnosticDescriptor INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE = new(
+			id: INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE_ID,
+			title: "Interfaces shouldn't derive from IDisposable",
+			messageFormat: "'{0}' derives from IDisposable",
 			category: "Code Quality",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Interfaces shouldn't derive from IDisposable.");
 
-		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics {
-			get {
-				return ImmutableArray.Create(
-					NoAwaitInsideLoop,
-					DontReturnTaskIfMethodDisposesObject,
-					IdentifiersInInternalNamespaceMustBeInternal,
-					DoNotAccessPrivateFieldsOfAnotherObjectDirectly,
-					DoNotCallDisposeOnStaticReadonlyFields,
-					DoNotCallTaskWaitToInvokeTask,
-					DoNotAccessTaskResultToInvokeTask,
-					TupleElementNamesMustBeInPascalCase,
-					NotUsingOverloadWithCancellationToken,
-					VarInferredTypeIsObsolete,
-					InterfacesShouldntDeriveFromIDisposable
-				);
-			}
-		}
+		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
+			NO_AWAIT_INSIDE_LOOP,
+			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
+			IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL,
+			DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY,
+			DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS,
+			DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK,
+			DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK,
+			TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE,
+			NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN,
+			VAR_INFERRED_TYPE_IS_OBSOLETE,
+			INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE
+		);
 
 		public override void Initialize(AnalysisContext context) {
-			if (context is null) {
-				throw new ArgumentNullException(nameof(context));
-			}
+			if (context is null) return;
 
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 			context.EnableConcurrentExecution();
 			context.RegisterSyntaxNodeAction(AnalyzeAwaitExpression, SyntaxKind.AwaitExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeUsingStatement, SyntaxKind.UsingStatement);
+			context.RegisterSyntaxNodeAction(AnalyzeUsingDeclarationStatement, SyntaxKind.LocalDeclarationStatement);
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 			context.RegisterSyntaxNodeAction(AnalyzeMemberAccessExpression, SyntaxKind.SimpleMemberAccessExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
@@ -160,25 +155,24 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is AwaitExpressionSyntax awaitExpressionSyntax) {
-					SyntaxNode loopNode = awaitExpressionSyntax.Ancestors().FirstOrDefault(ancestor => {
-						SyntaxKind kind = ancestor.Kind();
-						return kind == SyntaxKind.ForStatement
-							|| kind == SyntaxKind.ForEachStatement
-							|| kind == SyntaxKind.WhileStatement
-							|| kind == SyntaxKind.DoStatement
-							|| kind == SyntaxKind.MethodDeclaration
-							|| kind == SyntaxKind.ParenthesizedLambdaExpression
-							|| kind == SyntaxKind.SimpleLambdaExpression
-							|| kind == SyntaxKind.AnonymousMethodExpression;
+					SyntaxNode? loopNode = awaitExpressionSyntax.Ancestors().FirstOrDefault(ancestor => {
+						return ancestor.Kind()
+							is SyntaxKind.ForStatement
+							or SyntaxKind.ForEachStatement
+							or SyntaxKind.WhileStatement
+							or SyntaxKind.DoStatement
+							or SyntaxKind.MethodDeclaration
+							or SyntaxKind.ParenthesizedLambdaExpression
+							or SyntaxKind.SimpleLambdaExpression
+							or SyntaxKind.AnonymousMethodExpression;
 					});
 					if (loopNode is { }
-						&& loopNode.Kind() is SyntaxKind kind
-						&& (kind == SyntaxKind.ForStatement
-							|| kind == SyntaxKind.ForEachStatement
-							|| kind == SyntaxKind.WhileStatement
-							|| kind == SyntaxKind.DoStatement)) {
-						var diagnostic = Diagnostic.Create(NoAwaitInsideLoop, awaitExpressionSyntax.GetLocation(), loopNode.Kind() switch
-						{
+						&& loopNode.Kind()
+							is SyntaxKind.ForStatement
+							or SyntaxKind.ForEachStatement
+							or SyntaxKind.WhileStatement
+							or SyntaxKind.DoStatement) {
+						Diagnostic diagnostic = Diagnostic.Create(NO_AWAIT_INSIDE_LOOP, awaitExpressionSyntax.GetLocation(), loopNode.Kind() switch {
 							SyntaxKind.ForStatement => "for loop",
 							SyntaxKind.ForEachStatement => "foreach loop",
 							SyntaxKind.WhileStatement => "while loop",
@@ -197,11 +191,11 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is UsingStatementSyntax usingStatementSyntax) {
 					SyntaxNode methodNode = usingStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
-						SyntaxKind kind = ancestor.Kind();
-						return kind == SyntaxKind.MethodDeclaration
-							|| kind == SyntaxKind.ParenthesizedLambdaExpression
-							|| kind == SyntaxKind.SimpleLambdaExpression
-							|| kind == SyntaxKind.AnonymousMethodExpression;
+						return ancestor.Kind()
+							is SyntaxKind.MethodDeclaration
+							or SyntaxKind.ParenthesizedLambdaExpression
+							or SyntaxKind.SimpleLambdaExpression
+							or SyntaxKind.AnonymousMethodExpression;
 					});
 					switch (methodNode) {
 						case MethodDeclarationSyntax { ReturnType: { } returnType } methodDeclarationSyntax:
@@ -209,7 +203,43 @@ namespace RG.CodeAnalyzer {
 								&& namedTypeSymbol.ToString() is string fullName
 								&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
 								&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
-								var diagnostic = Diagnostic.Create(DontReturnTaskIfMethodDisposesObject, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
+								Diagnostic diagnostic = Diagnostic.Create(DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							}
+							break;
+						case ParenthesizedLambdaExpressionSyntax parenthesizedLambdaExpressionSyntax:
+							// TODO: handle parenthesized lambda expression
+							break;
+						case SimpleLambdaExpressionSyntax simpleLambdaExpressionSyntax:
+							// TODO: handle simple lambda expression
+							break;
+						case AnonymousMethodExpressionSyntax anonymousMethodExpressionSyntax:
+							// TODO: handle anonymous method expression
+							break;
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeUsingDeclarationStatement(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is LocalDeclarationStatementSyntax { UsingKeyword: { } usingKeyword } localDeclarationStatementSyntax) {
+					SyntaxNode methodNode = localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
+						return ancestor.Kind()
+							is SyntaxKind.MethodDeclaration
+							or SyntaxKind.ParenthesizedLambdaExpression
+							or SyntaxKind.SimpleLambdaExpression
+							or SyntaxKind.AnonymousMethodExpression;
+					});
+					switch (methodNode) {
+						case MethodDeclarationSyntax { ReturnType: { } returnType } methodDeclarationSyntax:
+							if (context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is INamedTypeSymbol namedTypeSymbol
+								&& namedTypeSymbol.ToString() is string fullName
+								&& fullName.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+								&& !methodDeclarationSyntax.Modifiers.Any(SyntaxKind.AsyncKeyword)) {
+								Diagnostic diagnostic = Diagnostic.Create(DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT, methodDeclarationSyntax.GetLocation(), methodDeclarationSyntax.Identifier.ValueText);
 								context.ReportDiagnostic(diagnostic);
 							}
 							break;
@@ -240,7 +270,7 @@ namespace RG.CodeAnalyzer {
 							case Accessibility.ProtectedAndInternal:
 								return;
 							default:
-								var diagnostic = Diagnostic.Create(IdentifiersInInternalNamespaceMustBeInternal, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
+								Diagnostic diagnostic = Diagnostic.Create(IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
 								context.ReportDiagnostic(diagnostic);
 								return;
 						}
@@ -260,31 +290,40 @@ namespace RG.CodeAnalyzer {
 						&& !member.IsStatic
 						&& member.DeclaredAccessibility == Accessibility.Private
 						&& memberAccessExpressionSyntax.Expression.ToString() != "this") {
-						var diagnostic = Diagnostic.Create(DoNotAccessPrivateFieldsOfAnotherObjectDirectly, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
+						Diagnostic diagnostic = Diagnostic.Create(DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
 					} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression) is SymbolInfo objSymbolInfo
 						&& objSymbolInfo.Symbol is ISymbol obj) {
-						if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Dispose"
-							&& context.Node.Parent is InvocationExpressionSyntax disposeInvocationSyntax
-							&& obj.Kind == SymbolKind.Field
-							&& obj.IsStatic
-							&& IsSymbolReadOnly(obj)) {
-							var diagnostic = Diagnostic.Create(DoNotCallDisposeOnStaticReadonlyFields, disposeInvocationSyntax.GetLocation(), obj.Name);
-							context.ReportDiagnostic(diagnostic);
-						} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Wait"
-							&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo waitSymbolInfo
-							&& waitSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-							&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
-							var diagnostic = Diagnostic.Create(DoNotCallTaskWaitToInvokeTask, waitInvocationSyntax.GetLocation());
-							context.ReportDiagnostic(diagnostic);
-						} else if (memberAccessExpressionSyntax.Name.Identifier.ValueText == "Result"
-							&& context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo resultSymbolInfo
-							&& resultSymbolInfo.Symbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-							&& !resultSymbolInfo.Symbol.IsStatic) {
-							var diagnostic = Diagnostic.Create(DoNotAccessTaskResultToInvokeTask, memberAccessExpressionSyntax.GetLocation());
-							context.ReportDiagnostic(diagnostic);
+						switch (memberAccessExpressionSyntax.Name.Identifier.ValueText) {
+							case "Dispose":
+								if (context.Node.Parent is InvocationExpressionSyntax disposeInvocationSyntax
+									&& obj.Kind == SymbolKind.Field
+									&& obj.IsStatic
+									&& IsSymbolReadOnly(obj)) {
+									Diagnostic diagnostic = Diagnostic.Create(DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS, disposeInvocationSyntax.GetLocation(), obj.Name);
+									context.ReportDiagnostic(diagnostic);
+								}
+								break;
+							case "Wait":
+								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo waitSymbolInfo
+									&& waitSymbolInfo.Symbol is { } waitSymbol
+									&& waitSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+									&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
+									Diagnostic diagnostic = Diagnostic.Create(DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK, waitInvocationSyntax.GetLocation());
+									context.ReportDiagnostic(diagnostic);
+								}
+								break;
+							case "Result":
+								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo resultSymbolInfo
+									&& resultSymbolInfo.Symbol is { } resultSymbol
+									&& resultSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+									&& !resultSymbol.IsStatic) {
+									Diagnostic diagnostic = Diagnostic.Create(DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK, memberAccessExpressionSyntax.GetLocation());
+									context.ReportDiagnostic(diagnostic);
+								}
+								break;
 						}
-					} 
+					}
 				}
 			} catch (Exception exc) {
 				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
@@ -297,7 +336,7 @@ namespace RG.CodeAnalyzer {
 					foreach (TupleElementSyntax tupleElementSyntax in tupleElements.ToImmutableArray()) {
 						if (tupleElementSyntax is { Identifier: { ValueText: string elementName } identifier }
 							&& !IsInPascalCase(elementName)) {
-							var diagnostic = Diagnostic.Create(TupleElementNamesMustBeInPascalCase, tupleElementSyntax.GetLocation(), elementName);
+							Diagnostic diagnostic = Diagnostic.Create(TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE, tupleElementSyntax.GetLocation(), elementName);
 							context.ReportDiagnostic(diagnostic);
 						}
 					}
@@ -311,31 +350,30 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is InvocationExpressionSyntax { Expression: { } expression, ArgumentList: { Arguments: { } invocationArguments } } invocationExpressionSyntax) {
 					if (context.SemanticModel.GetSymbolInfo(expression) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
-						var methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+						MethodDeclarationSyntax? methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 						if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
-							&& callerParameters.Any(callerParameter => callerParameter?.Type?.ToString() is string type && (type == "CancellationToken" || type == "System.Threading.CancellationToken"))) {
+							&& callerParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {
 							if (methodParameters.Length == invocationArguments.Count) {
 								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
 									if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
-										&& overloadSymbol.ReturnType.Equals(methodReturnType)
-										&& overloadSymbol.Parameters.Last()?.Type?.ToString() is string type
-										&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
+										&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)
+										&& overloadSymbol.Parameters.LastOrDefault()?.Type.ToString() is string type
+										&& (type is "CancellationToken" or "System.Threading.CancellationToken")) {
 										bool signatureMatches = true;
 										for (int i = 0; i < methodParameters.Length; i++) {
-											if (!overloadSymbol.Parameters[i].Type.Equals(methodParameters[i].Type)) {
+											if (!SymbolEqualityComparer.Default.Equals(overloadSymbol.Parameters[i].Type, methodParameters[i].Type)) {
 												signatureMatches = false;
 											}
 										}
 										if (signatureMatches) {
-											var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+											Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
 											context.ReportDiagnostic(diagnostic);
 										}
 									}
 								}
 							} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
-								&& methodParameters.Last()?.Type?.ToString() is string type
-								&& (type == "CancellationToken" || type == "System.Threading.CancellationToken")) {
-								var diagnostic = Diagnostic.Create(NotUsingOverloadWithCancellationToken, invocationExpressionSyntax.GetLocation());
+								&& methodParameters.Last().Type.ToString() is "CancellationToken" or "System.Threading.CancellationToken") {
+								Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
 								context.ReportDiagnostic(diagnostic);
 							}
 						}
@@ -351,29 +389,29 @@ namespace RG.CodeAnalyzer {
 				if (context.Node is VariableDeclarationSyntax { Type: { IsVar: true } varNode } varDeclarationSyntax
 					&& context.SemanticModel.GetTypeInfo(varNode, context.CancellationToken) is { Type: INamedTypeSymbol typeSymbol }
 					&& typeSymbol.GetAttributes() is { } attributes
-					&& attributes.FirstOrDefault(attribute => attribute.AttributeClass.ToString() == "System.ObsoleteAttribute") is { ConstructorArguments: { } attributeArguments }) {
+					&& attributes.FirstOrDefault(attribute => attribute.AttributeClass?.ToString() == "System.ObsoleteAttribute") is { ConstructorArguments: { } attributeArguments }) {
 					if (attributeArguments.Length > 0
 						&& attributeArguments[0].Value is { } messageArg
 						&& messageArg.ToString() is string message) {
 						if (attributeArguments.Length > 1
 							&& attributeArguments[1].Value is { } errorArg
 							&& errorArg is true) {
-							var diagnostic = Diagnostic.Create(
-								id: VarInferredTypeIsObsoleteId,
-								category: VarInferredTypeIsObsolete.Category,
-								message: string.Format(CultureInfo.InvariantCulture, VarInferredTypeIsObsolete.MessageFormat.ToString(CultureInfo.InvariantCulture), typeSymbol.Name, $": '{message}'"),
+							Diagnostic diagnostic = Diagnostic.Create(
+								id: VAR_INFERRED_TYPE_IS_OBSOLETE_ID,
+								category: VAR_INFERRED_TYPE_IS_OBSOLETE.Category,
+								message: string.Format(CultureInfo.InvariantCulture, VAR_INFERRED_TYPE_IS_OBSOLETE.MessageFormat.ToString(CultureInfo.InvariantCulture), typeSymbol.Name, $": '{message}'"),
 								severity: DiagnosticSeverity.Error,
-								defaultSeverity: VarInferredTypeIsObsolete.DefaultSeverity,
-								isEnabledByDefault: VarInferredTypeIsObsolete.IsEnabledByDefault,
+								defaultSeverity: VAR_INFERRED_TYPE_IS_OBSOLETE.DefaultSeverity,
+								isEnabledByDefault: VAR_INFERRED_TYPE_IS_OBSOLETE.IsEnabledByDefault,
 								warningLevel: 0,
 								location: varNode.GetLocation());
 							context.ReportDiagnostic(diagnostic);
 						} else {
-							var diagnostic = Diagnostic.Create(VarInferredTypeIsObsolete, varNode.GetLocation(), typeSymbol.Name, $": '{message}'");
+							Diagnostic diagnostic = Diagnostic.Create(VAR_INFERRED_TYPE_IS_OBSOLETE, varNode.GetLocation(), typeSymbol.Name, $": '{message}'");
 							context.ReportDiagnostic(diagnostic);
 						}
 					} else {
-						var diagnostic = Diagnostic.Create(VarInferredTypeIsObsolete, varNode.GetLocation(), typeSymbol.Name, ".");
+						Diagnostic diagnostic = Diagnostic.Create(VAR_INFERRED_TYPE_IS_OBSOLETE, varNode.GetLocation(), typeSymbol.Name, ".");
 						context.ReportDiagnostic(diagnostic);
 					}
 				}
@@ -386,7 +424,7 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is InterfaceDeclarationSyntax { BaseList: { Types: var baseTypes } } declaration) {
 					if (baseTypes.Any(baseType => baseType.Type.ToString() == "IDisposable")) {
-						var diagnostic = Diagnostic.Create(InterfacesShouldntDeriveFromIDisposable, declaration.GetLocation(), declaration.Identifier.ValueText);
+						Diagnostic diagnostic = Diagnostic.Create(INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE, declaration.GetLocation(), declaration.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
 					}
 				}
@@ -417,8 +455,9 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static bool IsSymbolReadOnly(ISymbol symbol) {
-			PropertyInfo prop = symbol.GetType().GetRuntimeProperty("IsReadOnly");
-			return prop.GetValue(symbol) is true;
+			Type symbolType = symbol.GetType();
+			PropertyInfo? prop = symbolType.GetRuntimeProperties().FirstOrDefault(rp => rp.Name.EndsWith("IsReadOnly", StringComparison.Ordinal));
+			return prop?.GetValue(symbol) is true;
 		}
 
 		internal static bool IsInPascalCase(string identifierName) {
@@ -435,7 +474,7 @@ namespace RG.CodeAnalyzer {
 
 		internal static string ToPascalCase(string camelCaseIdentifierName) {
 			if (!IsInCamelCase(camelCaseIdentifierName)) throw new ArgumentException("Identifier name is not in camel case.", nameof(camelCaseIdentifierName));
-			return $"{char.ToUpper(camelCaseIdentifierName[0])}{camelCaseIdentifierName.Substring(1)}";
+			return $"{char.ToUpper(camelCaseIdentifierName[0], CultureInfo.CurrentCulture)}{camelCaseIdentifierName.Substring(1)}";
 		}
 		#endregion
 	}

@@ -11,14 +11,14 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod1() {
-			var test = @"";
+			string test = @"";
 
 			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
 		public void TestMethod2() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -39,9 +39,9 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0002",
-				Message = String.Format("Method '{0}' disposes an object and shouldn't return Task.", "MethodName"),
+				Message = string.Format("Method '{0}' disposes an object and shouldn't return Task", "MethodName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -51,7 +51,7 @@ namespace RG.CodeAnalyzer.Test {
 
 			VerifyCSharpDiagnostic(test, expected);
 
-			var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -78,7 +78,7 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod3() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -105,7 +105,7 @@ namespace RG.CodeAnalyzer.Test {
 
 		[TestMethod]
 		public void TestMethod4() {
-			var test = @"
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -124,9 +124,9 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0002",
-				Message = String.Format("Method '{0}' disposes an object and shouldn't return Task.", "MethodName"),
+				Message = string.Format("Method '{0}' disposes an object and shouldn't return Task", "MethodName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -136,7 +136,7 @@ namespace RG.CodeAnalyzer.Test {
 
 			VerifyCSharpDiagnostic(test, expected);
 
-			var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -158,12 +158,71 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpFix(test, fixtest);
 		}
 
+		[TestMethod]
+		public void TestMethod5() {
+			string test = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+
+    namespace ConsoleApplication1
+    {
+        class TypeName
+        {
+            public Task<int> MethodName()
+            {
+                using (var cts = new CancellationTokenSource())
+                {
+                    return Task.FromResult(0);
+                }
+            }
+        }
+    }";
+			DiagnosticResult expected = new() {
+				Id = "RG0002",
+				Message = string.Format("Method '{0}' disposes an object and shouldn't return Task", "MethodName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 13, 13)
+					}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
+
+			string fixtest = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+
+    namespace ConsoleApplication1
+    {
+        class TypeName
+        {
+            public async Task<int> MethodName()
+            {
+                using (var cts = new CancellationTokenSource())
+                {
+                    return await Task.FromResult(0);
+                }
+            }
+        }
+    }";
+			VerifyCSharpFix(test, fixtest);
+		}
+
 		/// <summary>
 		/// Related issue: https://github.com/ronnygunawan/analyzers/issues/6
 		/// </summary>
 		[TestMethod]
-		public void TestMethod5() {
-			var test = @"
+		public void TestMethod6() {
+			string test = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -179,14 +238,14 @@ namespace RG.CodeAnalyzer.Test {
             {
                 using (var cts = new CancellationTokenSource())
                 {
-                    return Task.FromResult(0);
+                    return Task.CompletedTask;
                 }
             }
         }
     }";
-			var expected = new DiagnosticResult {
+			DiagnosticResult expected = new() {
 				Id = "RG0002",
-				Message = String.Format("Method '{0}' disposes an object and shouldn't return Task.", "MethodName"),
+				Message = string.Format("Method '{0}' disposes an object and shouldn't return Task", "MethodName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -196,7 +255,7 @@ namespace RG.CodeAnalyzer.Test {
 
 			VerifyCSharpDiagnostic(test, expected);
 
-			var fixtest = @"
+			string fixtest = @"
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -212,7 +271,7 @@ namespace RG.CodeAnalyzer.Test {
             {
                 using (var cts = new CancellationTokenSource())
                 {
-                    await Task.FromResult(0);
+                    return await Task.CompletedTask;
                 }
             }
         }
