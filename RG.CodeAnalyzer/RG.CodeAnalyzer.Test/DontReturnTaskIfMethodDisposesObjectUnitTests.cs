@@ -2,7 +2,6 @@
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
@@ -223,6 +222,7 @@ namespace RG.CodeAnalyzer.Test {
 		[TestMethod]
 		public void TestMethod6() {
 			string test = @"
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -249,13 +249,14 @@ namespace RG.CodeAnalyzer.Test {
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 13, 13)
+						new DiagnosticResultLocation("Test0.cs", 14, 13)
 					}
 			};
 
 			VerifyCSharpDiagnostic(test, expected);
 
 			string fixtest = @"
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -271,7 +272,7 @@ namespace RG.CodeAnalyzer.Test {
             {
                 using (var cts = new CancellationTokenSource())
                 {
-                    return await Task.CompletedTask;
+                    return ;
                 }
             }
         }

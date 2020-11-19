@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -21,7 +22,8 @@ namespace RG.CodeAnalyzer {
 		public const string TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE_ID = "RG0008";
 		public const string NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN_ID = "RG0009";
 		public const string VAR_INFERRED_TYPE_IS_OBSOLETE_ID = "RG0010";
-		public const string INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE_ID = "RG0011";
+		public const string INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE_ID = "RG0011";
+		public const string UNRESOLVED_TASK_ID = "RG0012";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -113,14 +115,23 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Inferred type is obsolete.");
 
-		private static readonly DiagnosticDescriptor INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE = new(
-			id: INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE_ID,
+		private static readonly DiagnosticDescriptor INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE = new(
+			id: INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE_ID,
 			title: "Interfaces shouldn't derive from IDisposable",
 			messageFormat: "'{0}' derives from IDisposable",
 			category: "Code Quality",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
 			description: "Interfaces shouldn't derive from IDisposable.");
+
+		private static readonly DiagnosticDescriptor UNRESOLVED_TASK = new(
+			id: UNRESOLVED_TASK_ID,
+			title: "Task is unresolved",
+			messageFormat: "Task is unresolved",
+			category: "Maintainability",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Task is unresolved.");
 
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
@@ -133,7 +144,8 @@ namespace RG.CodeAnalyzer {
 			TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE,
 			NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN,
 			VAR_INFERRED_TYPE_IS_OBSOLETE,
-			INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE
+			INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE,
+			UNRESOLVED_TASK
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -150,6 +162,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
 			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
 			context.RegisterSyntaxNodeAction(AnalyzeInterfaceDeclarations, SyntaxKind.InterfaceDeclaration);
+			context.RegisterSyntaxTreeAction(AnalyzeSingleLineComments);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -424,8 +437,29 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is InterfaceDeclarationSyntax { BaseList: { Types: var baseTypes } } declaration) {
 					if (baseTypes.Any(baseType => baseType.Type.ToString() == "IDisposable")) {
-						Diagnostic diagnostic = Diagnostic.Create(INTERFACES_SHOULDNT_DERIVE_FROM_I_DISPOSABLE, declaration.GetLocation(), declaration.Identifier.ValueText);
+						Diagnostic diagnostic = Diagnostic.Create(INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE, declaration.GetLocation(), declaration.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeSingleLineComments(SyntaxTreeAnalysisContext context) {
+			try {
+				SyntaxNode root = context.Tree.GetCompilationUnitRoot(context.CancellationToken);
+				foreach (SyntaxTrivia singleLineCommentTrivia in from trivia in root.DescendantTrivia()
+																 where trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
+																 select trivia) {
+					if (singleLineCommentTrivia.ToString() is string commentText) {
+						if (commentText.StartsWith("// TODO", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("//TODO", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("// HACK", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("//HACK", StringComparison.CurrentCulture)) {
+							Diagnostic diagnostic = Diagnostic.Create(UNRESOLVED_TASK, singleLineCommentTrivia.GetLocation());
+							context.ReportDiagnostic(diagnostic);
+						}
 					}
 				}
 			} catch (Exception exc) {

@@ -123,3 +123,12 @@ var obj = GetObjOfObsoleteClass(); // RG0010: 'ObsoleteClass' is obsolete.
 ```cs
 interface I : IDisposable { } // RG0011: 'I' derives from IDisposable.
 ```
+
+### 12. Task is unresolved
+```cs
+// TODO: implement this method please, Bob // RG0012: Task is unresolved
+public int Foo() {
+    // HACK: throw this exception until implemented // RG0012: Task is unresolved
+    throw new NotImplementedException();
+}
+```

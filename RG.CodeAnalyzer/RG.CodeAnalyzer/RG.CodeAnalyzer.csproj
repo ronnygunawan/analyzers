@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>RG.CodeAnalyzer</PackageId>
-    <PackageVersion>1.0.13.0</PackageVersion>
+    <PackageVersion>1.0.14.0</PackageVersion>
     <Authors>Ronny Gunawan</Authors>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/ronnygunawan/analyzers</PackageProjectUrl>
@@ -23,7 +23,7 @@
     <PackageTags>analyzers</PackageTags>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.0.13</Version>
+    <Version>1.0.14</Version>
   </PropertyGroup>
 
   <ItemGroup>

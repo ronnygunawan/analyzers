@@ -15,3 +15,4 @@ RG0008 | Code Style | Warning | RGDiagnosticAnalyzer
 RG0009 | Performance | Warning | RGDiagnosticAnalyzer
 RG0010 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0011 | Code Quality | Warning | RGDiagnosticAnalyzer
+RG0012 | Maintainability | Warning | RGDiagnosticAnalyzer

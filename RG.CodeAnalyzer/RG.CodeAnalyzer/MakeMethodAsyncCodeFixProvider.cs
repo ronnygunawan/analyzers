@@ -52,7 +52,21 @@ namespace RG.CodeAnalyzer {
 			while (newRoot.DescendantNodes().OfType<ReturnStatementSyntax>().FirstOrDefault() is ReturnStatementSyntax returnStatement
 				&& returnStatement.Expression is { } returnExpression
 				&& returnExpression.Kind() != SyntaxKind.AwaitExpression) {
-				newRoot = newRoot.ReplaceNode(returnStatement, returnStatement.WithExpression(SyntaxFactory.AwaitExpression(returnExpression)));
+				if (returnExpression is MemberAccessExpressionSyntax
+					{
+						Expression: IdentifierNameSyntax
+						{
+							Identifier: { ValueText: "Task" }
+						},
+						Name: IdentifierNameSyntax
+						{
+							Identifier: { ValueText: "CompletedTask" }
+						}
+					}) {
+					newRoot = newRoot.ReplaceNode(returnStatement, returnStatement.WithExpression(null));
+				} else {
+					newRoot = newRoot.ReplaceNode(returnStatement, returnStatement.WithExpression(SyntaxFactory.AwaitExpression(returnExpression)));
+				}
 			}
 
 			Document newDocument = document.WithSyntaxRoot(newRoot);
