@@ -456,7 +456,11 @@ namespace RG.CodeAnalyzer {
 						if (commentText.StartsWith("// TODO", StringComparison.CurrentCulture)
 							|| commentText.StartsWith("//TODO", StringComparison.CurrentCulture)
 							|| commentText.StartsWith("// HACK", StringComparison.CurrentCulture)
-							|| commentText.StartsWith("//HACK", StringComparison.CurrentCulture)) {
+							|| commentText.StartsWith("//HACK", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("// FIXME", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("//FIXME", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("// UNDONE", StringComparison.CurrentCulture)
+							|| commentText.StartsWith("//UNDONE", StringComparison.CurrentCulture)) {
 							Diagnostic diagnostic = Diagnostic.Create(UNRESOLVED_TASK, singleLineCommentTrivia.GetLocation(), commentText.Substring(2).TrimStart());
 							context.ReportDiagnostic(diagnostic);
 						}
