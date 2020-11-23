@@ -190,7 +190,13 @@ namespace RG.CodeAnalyzer {
 							or SyntaxKind.SimpleLambdaExpression
 							or SyntaxKind.AnonymousMethodExpression;
 					});
-					if (loopNode is { }
+					if (loopNode is ForEachStatementSyntax foreachStatement) {
+						if (foreachStatement.Expression is not AwaitExpressionSyntax foreachAwaitExpression
+							|| awaitExpressionSyntax != foreachAwaitExpression) {
+							Diagnostic diagnostic = Diagnostic.Create(NO_AWAIT_INSIDE_LOOP, awaitExpressionSyntax.GetLocation(), "foreach loop");
+							context.ReportDiagnostic(diagnostic);
+						}
+					} else if (loopNode is { }
 						&& loopNode.Kind()
 							is SyntaxKind.ForStatement
 							or SyntaxKind.ForEachStatement
