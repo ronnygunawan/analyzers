@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -24,6 +23,7 @@ namespace RG.CodeAnalyzer {
 		public const string VAR_INFERRED_TYPE_IS_OBSOLETE_ID = "RG0010";
 		public const string INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE_ID = "RG0011";
 		public const string UNRESOLVED_TASK_ID = "RG0012";
+		public const string WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION_ID = "RG0013";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -133,6 +133,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Task is unresolved.");
 
+		private static readonly DiagnosticDescriptor WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION = new(
+			id: WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION_ID,
+			title: "'with' shouldn't be used outside its record declaration",
+			messageFormat: "'with' used outside '{0}'",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "'with' shouldn't be used outside its record declaration.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -145,7 +154,8 @@ namespace RG.CodeAnalyzer {
 			NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN,
 			VAR_INFERRED_TYPE_IS_OBSOLETE,
 			INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE,
-			UNRESOLVED_TASK
+			UNRESOLVED_TASK,
+			WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -163,6 +173,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
 			context.RegisterSyntaxNodeAction(AnalyzeInterfaceDeclarations, SyntaxKind.InterfaceDeclaration);
 			context.RegisterSyntaxTreeAction(AnalyzeSingleLineComments);
+			context.RegisterSyntaxNodeAction(AnalyzeWithExpressions, SyntaxKind.WithExpression);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -465,6 +476,23 @@ namespace RG.CodeAnalyzer {
 							Diagnostic diagnostic = Diagnostic.Create(UNRESOLVED_TASK, singleLineCommentTrivia.GetLocation(), commentText.Substring(2).TrimStart());
 							context.ReportDiagnostic(diagnostic);
 						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeWithExpressions(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is WithExpressionSyntax { Expression: { } expression, WithKeyword: var withKeyword } withExpression
+					&& context.SemanticModel.GetTypeInfo(expression, context.CancellationToken) is { Type: INamedTypeSymbol { } namedTypeSymbol }) {
+					if (withExpression.FirstAncestorOrSelf<RecordDeclarationSyntax>() is not { } recordDeclarationSyntax) {
+						Diagnostic diagnostic = Diagnostic.Create(WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION, withKeyword.GetLocation(), namedTypeSymbol.ToString());
+						context.ReportDiagnostic(diagnostic);
+					} else if (context.SemanticModel.GetDeclaredSymbol(recordDeclarationSyntax)?.ToString() != namedTypeSymbol.ToString()) {
+						Diagnostic diagnostic = Diagnostic.Create(WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION, withKeyword.GetLocation(), namedTypeSymbol.ToString());
+						context.ReportDiagnostic(diagnostic);
 					}
 				}
 			} catch (Exception exc) {
