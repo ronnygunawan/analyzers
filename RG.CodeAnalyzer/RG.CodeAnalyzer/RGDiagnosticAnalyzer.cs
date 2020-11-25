@@ -24,6 +24,7 @@ namespace RG.CodeAnalyzer {
 		public const string INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE_ID = "RG0011";
 		public const string UNRESOLVED_TASK_ID = "RG0012";
 		public const string WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION_ID = "RG0013";
+		public const string DO_NOT_PARSE_USING_CONVERT_ID = "RG0014";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -142,6 +143,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "'with' shouldn't be used outside its record declaration.");
 
+		private static readonly DiagnosticDescriptor DO_NOT_PARSE_USING_CONVERT = new(
+			id: DO_NOT_PARSE_USING_CONVERT_ID,
+			title: "Do not parse using Convert",
+			messageFormat: "Parsing '{0}' using 'Convert.{1}'",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Do not parse using Convert.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -155,7 +165,8 @@ namespace RG.CodeAnalyzer {
 			VAR_INFERRED_TYPE_IS_OBSOLETE,
 			INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE,
 			UNRESOLVED_TASK,
-			WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION
+			WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION,
+			DO_NOT_PARSE_USING_CONVERT
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -163,16 +174,42 @@ namespace RG.CodeAnalyzer {
 
 			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 			context.EnableConcurrentExecution();
+
+			// NO_AWAIT_INSIDE_LOOP
 			context.RegisterSyntaxNodeAction(AnalyzeAwaitExpression, SyntaxKind.AwaitExpression);
+
+			// DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT
 			context.RegisterSyntaxNodeAction(AnalyzeUsingStatement, SyntaxKind.UsingStatement);
+
+			// DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT
 			context.RegisterSyntaxNodeAction(AnalyzeUsingDeclarationStatement, SyntaxKind.LocalDeclarationStatement);
+
+			// IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
+
+			// DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY
+			// DO_NOT_CALL_DISPOSE_ON_STATIC_READONLY_FIELDS
+			// DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK
+			// DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK
 			context.RegisterSyntaxNodeAction(AnalyzeMemberAccessExpression, SyntaxKind.SimpleMemberAccessExpression);
+
+			// TUPLE_ELEMENT_NAMES_MUST_BE_IN_PASCAL_CASE
 			context.RegisterSyntaxNodeAction(AnalyzeTupleTypes, SyntaxKind.TupleType);
+
+			// NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN
+			// DO_NOT_PARSE_USING_CONVERT
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
+
+			// VAR_INFERRED_TYPE_IS_OBSOLETE
 			context.RegisterSyntaxNodeAction(AnalyzeVariableDeclarations, SyntaxKind.VariableDeclaration);
+
+			// INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE
 			context.RegisterSyntaxNodeAction(AnalyzeInterfaceDeclarations, SyntaxKind.InterfaceDeclaration);
+
+			// UNRESOLVED_TASK
 			context.RegisterSyntaxTreeAction(AnalyzeSingleLineComments);
+
+			// WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION
 			context.RegisterSyntaxNodeAction(AnalyzeWithExpressions, SyntaxKind.WithExpression);
 		}
 
@@ -380,7 +417,32 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is InvocationExpressionSyntax { Expression: { } expression, ArgumentList: { Arguments: { } invocationArguments } } invocationExpressionSyntax) {
-					if (context.SemanticModel.GetSymbolInfo(expression) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
+					if (expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: { ValueText: nameof(Convert) } }, Name: IdentifierNameSyntax methodName }) {
+						if (context.SemanticModel.GetTypeInfo(invocationArguments[0].Expression) is { Type: INamedTypeSymbol argumentTypeSymbol }
+							&& argumentTypeSymbol.ToString() == "string") {
+							string? typeName = methodName.Identifier.ValueText switch {
+								nameof(Convert.ToBoolean) => "bool",
+								nameof(Convert.ToByte) => "byte",
+								nameof(Convert.ToChar) => "char",
+								nameof(Convert.ToDateTime) => "DateTime",
+								nameof(Convert.ToDecimal) => "decimal",
+								nameof(Convert.ToDouble) => "double",
+								nameof(Convert.ToInt16) => "short",
+								nameof(Convert.ToInt32) => "int",
+								nameof(Convert.ToInt64) => "long",
+								nameof(Convert.ToSByte) => "sbyte",
+								nameof(Convert.ToSingle) => "float",
+								nameof(Convert.ToUInt16) => "ushort",
+								nameof(Convert.ToUInt32) => "uint",
+								nameof(Convert.ToUInt64) => "ulong",
+								_ => null
+							};
+							if (typeName is not null) {
+								Diagnostic diagnostic = Diagnostic.Create(DO_NOT_PARSE_USING_CONVERT, invocationExpressionSyntax.GetLocation(), typeName, methodName.Identifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+					} else if (context.SemanticModel.GetSymbolInfo(expression) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
 						MethodDeclarationSyntax? methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 						if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
 							&& callerParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {

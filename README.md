@@ -142,3 +142,8 @@ record Foo(int X);
 Foo f = new(0);
 f = f with { X = 1 }; // RG0013: 'with' used outside 'MyApp.Foo'
 ```
+
+### 14. Do not parse using `Convert`
+```cs
+int i = Convert.ToInt32("100"); // RG0014: Parsing 'int' using 'Convert.ToInt32'
+```

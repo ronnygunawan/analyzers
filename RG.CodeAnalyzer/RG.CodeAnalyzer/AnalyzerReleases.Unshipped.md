@@ -17,3 +17,4 @@ RG0010 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0011 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0012 | Maintainability | Warning | RGDiagnosticAnalyzer
 RG0013 | Code Quality | Warning | RGDiagnosticAnalyzer
+RG0014 | Reliability | Warning | RGDiagnosticAnalyzer
