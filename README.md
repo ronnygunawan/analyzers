@@ -142,7 +142,7 @@ record Foo(int X);
 Foo f = new(0);
 f = f with { X = 1 }; // RG0013: 'with' used outside 'MyApp.Foo'
 ```
-Suggested practice [here](https://github.com/ronnygunawan/analyzers/issues/33)
+[Suggested best practice](https://github.com/ronnygunawan/analyzers/issues/33)
 
 ### 14. Do not parse using `Convert`
 ```cs
