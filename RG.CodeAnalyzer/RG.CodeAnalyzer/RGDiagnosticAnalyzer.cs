@@ -25,6 +25,12 @@ namespace RG.CodeAnalyzer {
 		public const string UNRESOLVED_TASK_ID = "RG0012";
 		public const string WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION_ID = "RG0013";
 		public const string DO_NOT_PARSE_USING_CONVERT_ID = "RG0014";
+		public const string RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR_ID = "RG0015";
+		public const string RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD_ID = "RG0016";
+		public const string RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION_ID = "RG0017";
+		public const string RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE_ID = "RG0018";
+		public const string REQUIRED_PROPERTY_NOT_INITIALIZED_ID = "RG0019";
+		public const string VALUE_TYPE_PROPERTY_NOT_INITIALIZED_ID = "RG0020";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -152,6 +158,42 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not parse using Convert.");
 
+		private static readonly DiagnosticDescriptor RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR = new(
+			id: RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR_ID,
+			title: "Records should not contain set accessor",
+			messageFormat: "'{0}' should not have set accessor because it's declared in a record",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Records should not contain set accessor.");
+
+		private static readonly DiagnosticDescriptor RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD = new(
+			id: RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD_ID,
+			title: "Records should not contain mutable field",
+			messageFormat: "'{0}' should not be mutable because it's declared in a record",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Records should not contain mutable field.");
+
+		private static readonly DiagnosticDescriptor RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION = new(
+			id: RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION_ID,
+			title: "Records should not contain mutable collection",
+			messageFormat: "'{0}' is a mutable collection and should not be used in a record",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Records should not contain mutable collection.");
+
+		private static readonly DiagnosticDescriptor RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE = new(
+			id: RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE_ID,
+			title: "Records should not contain reference to class or struct type",
+			messageFormat: "'{0}' is {1} type and should not be used in a record",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Records should not contain reference to class or struct type.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -166,7 +208,11 @@ namespace RG.CodeAnalyzer {
 			INTERFACES_SHOULDNT_DERIVE_FROM_IDISPOSABLE,
 			UNRESOLVED_TASK,
 			WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION,
-			DO_NOT_PARSE_USING_CONVERT
+			DO_NOT_PARSE_USING_CONVERT,
+			RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR,
+			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD,
+			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION,
+			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -211,6 +257,12 @@ namespace RG.CodeAnalyzer {
 
 			// WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION
 			context.RegisterSyntaxNodeAction(AnalyzeWithExpressions, SyntaxKind.WithExpression);
+
+			// RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_PROPERTY
+			// RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD
+			// RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION
+			// RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE
+			context.RegisterSyntaxNodeAction(AnalyzeRecordDeclarations, SyntaxKind.RecordDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -293,7 +345,7 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeUsingDeclarationStatement(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is LocalDeclarationStatementSyntax { UsingKeyword: { } usingKeyword } localDeclarationStatementSyntax
-					&& usingKeyword.Kind() == SyntaxKind.UsingKeyword){
+					&& usingKeyword.Kind() == SyntaxKind.UsingKeyword) {
 					SyntaxNode methodNode = localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
 						return ancestor.Kind()
 							is SyntaxKind.MethodDeclaration
@@ -329,7 +381,7 @@ namespace RG.CodeAnalyzer {
 
 		private static void AnalyzeNamedTypeDeclaration(SymbolAnalysisContext context) {
 			try {
-				if (context.Symbol is INamedTypeSymbol { ContainingNamespace: { } containingNamespace }) {
+				if (context.Symbol is INamedTypeSymbol { ContainingNamespace: { } containingNamespace } namedTypeSymbol) {
 					if (IsInternalNamespace(containingNamespace, out string fullNamespace)) {
 						switch (context.Symbol.DeclaredAccessibility) {
 							case Accessibility.Internal:
@@ -338,7 +390,7 @@ namespace RG.CodeAnalyzer {
 							case Accessibility.ProtectedAndInternal:
 								return;
 							default:
-								Diagnostic diagnostic = Diagnostic.Create(IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax().GetLocation(), context.Symbol.Name, fullNamespace);
+								Diagnostic diagnostic = Diagnostic.Create(IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL, context.Symbol.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken).GetLocation(), context.Symbol.Name, fullNamespace);
 								context.ReportDiagnostic(diagnostic);
 								return;
 						}
@@ -352,7 +404,7 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeMemberAccessExpression(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is MemberAccessExpressionSyntax memberAccessExpressionSyntax) {
-					if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax) is SymbolInfo memberSymbolInfo
+					if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax, context.CancellationToken) is SymbolInfo memberSymbolInfo
 						&& memberSymbolInfo.Symbol is ISymbol member
 						&& member.Kind == SymbolKind.Field
 						&& !member.IsStatic
@@ -360,7 +412,7 @@ namespace RG.CodeAnalyzer {
 						&& memberAccessExpressionSyntax.Expression.ToString() != "this") {
 						Diagnostic diagnostic = Diagnostic.Create(DO_NOT_ACCESS_PRIVATE_FIELDS_OF_ANOTHER_OBJECT_DIRECTLY, memberAccessExpressionSyntax.Name.GetLocation(), memberAccessExpressionSyntax.Name.Identifier.ValueText);
 						context.ReportDiagnostic(diagnostic);
-					} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression) is SymbolInfo objSymbolInfo
+					} else if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Expression, context.CancellationToken) is SymbolInfo objSymbolInfo
 						&& objSymbolInfo.Symbol is ISymbol obj) {
 						switch (memberAccessExpressionSyntax.Name.Identifier.ValueText) {
 							case "Dispose":
@@ -373,7 +425,7 @@ namespace RG.CodeAnalyzer {
 								}
 								break;
 							case "Wait":
-								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo waitSymbolInfo
+								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name, context.CancellationToken) is SymbolInfo waitSymbolInfo
 									&& waitSymbolInfo.Symbol is { } waitSymbol
 									&& waitSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
 									&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
@@ -382,7 +434,7 @@ namespace RG.CodeAnalyzer {
 								}
 								break;
 							case "Result":
-								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name) is SymbolInfo resultSymbolInfo
+								if (context.SemanticModel.GetSymbolInfo(memberAccessExpressionSyntax.Name, context.CancellationToken) is SymbolInfo resultSymbolInfo
 									&& resultSymbolInfo.Symbol is { } resultSymbol
 									&& resultSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
 									&& !resultSymbol.IsStatic) {
@@ -418,7 +470,7 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is InvocationExpressionSyntax { Expression: { } expression, ArgumentList: { Arguments: { } invocationArguments } } invocationExpressionSyntax) {
 					if (expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: { ValueText: nameof(Convert) } }, Name: IdentifierNameSyntax methodName }) {
-						if (context.SemanticModel.GetTypeInfo(invocationArguments[0].Expression) is { Type: INamedTypeSymbol argumentTypeSymbol }
+						if (context.SemanticModel.GetTypeInfo(invocationArguments[0].Expression, context.CancellationToken) is { Type: INamedTypeSymbol argumentTypeSymbol }
 							&& argumentTypeSymbol.ToString() == "string") {
 							string? typeName = methodName.Identifier.ValueText switch {
 								nameof(Convert.ToBoolean) => "bool",
@@ -442,12 +494,12 @@ namespace RG.CodeAnalyzer {
 								context.ReportDiagnostic(diagnostic);
 							}
 						}
-					} else if (context.SemanticModel.GetSymbolInfo(expression) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
+					} else if (context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
 						MethodDeclarationSyntax? methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 						if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
 							&& callerParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {
 							if (methodParameters.Length == invocationArguments.Count) {
-								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression).OfType<IMethodSymbol>()) {
+								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression, context.CancellationToken).OfType<IMethodSymbol>()) {
 									if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
 										&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)
 										&& overloadSymbol.Parameters.LastOrDefault()?.Type.ToString() is string type
@@ -528,7 +580,7 @@ namespace RG.CodeAnalyzer {
 
 		private static void AnalyzeSingleLineComments(SyntaxTreeAnalysisContext context) {
 			try {
-				SyntaxNode root = context.Tree.GetCompilationUnitRoot(context.CancellationToken);
+				SyntaxNode root = context.Tree.GetCompilationUnitRoot();
 				foreach (SyntaxTrivia singleLineCommentTrivia in from trivia in root.DescendantTrivia()
 																 where trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
 																 select trivia) {
@@ -558,9 +610,62 @@ namespace RG.CodeAnalyzer {
 					if (withExpression.FirstAncestorOrSelf<RecordDeclarationSyntax>() is not { } recordDeclarationSyntax) {
 						Diagnostic diagnostic = Diagnostic.Create(WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION, withKeyword.GetLocation(), namedTypeSymbol.ToString());
 						context.ReportDiagnostic(diagnostic);
-					} else if (context.SemanticModel.GetDeclaredSymbol(recordDeclarationSyntax)?.ToString() != namedTypeSymbol.ToString()) {
+					} else if (context.SemanticModel.GetDeclaredSymbol(recordDeclarationSyntax, context.CancellationToken)?.ToString() != namedTypeSymbol.ToString()) {
 						Diagnostic diagnostic = Diagnostic.Create(WITH_SHOULDNT_BE_USED_OUTSIDE_ITS_RECORD_DECLARATION, withKeyword.GetLocation(), namedTypeSymbol.ToString());
 						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeRecordDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is RecordDeclarationSyntax
+					{
+						Members: { } members
+					} recordDeclaration
+					&& context.SemanticModel.GetDeclaredSymbol(recordDeclaration, context.CancellationToken) is INamedTypeSymbol recordSymbol) {
+					if (recordDeclaration.ParameterList is { } parameterList) {
+						foreach (ParameterSyntax parameter in parameterList.Parameters) {
+							if (parameter.Type is not null
+								&& context.SemanticModel.GetTypeInfo(parameter.Type, context.CancellationToken).Type is ITypeSymbol parameterTypeSymbol) {
+								AnalyzeRecordMemberType(context, parameter.Type, parameterTypeSymbol);
+							}
+						}
+					}
+					foreach (MemberDeclarationSyntax member in members) {
+						switch (member) {
+							case PropertyDeclarationSyntax property: {
+									if (property.AccessorList is { Accessors: { } accessors }) {
+										if (accessors.FirstOrDefault(accessor => accessor.Kind() == SyntaxKind.SetAccessorDeclaration) is { } setAccessor) {
+											Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR, setAccessor.GetLocation(), property.Identifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
+										}
+									}
+									if (recordSymbol.GetMembers(property.Identifier.ValueText) is { Length: > 0 } propertySymbols
+										&& propertySymbols[0] is IPropertySymbol { Type: ITypeSymbol propertyTypeSymbol }) {
+										AnalyzeRecordMemberType(context, property.Type, propertyTypeSymbol);
+									}
+									break;
+								}
+							case FieldDeclarationSyntax field: {
+									if (!field.Modifiers.Any(modifier => modifier.Kind() is SyntaxKind.ReadOnlyKeyword or SyntaxKind.ConstKeyword)) {
+										foreach (VariableDeclaratorSyntax variableDeclarator in field.Declaration.Variables) {
+											Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD, variableDeclarator.GetLocation(), variableDeclarator.Identifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
+										}
+									}
+									foreach (VariableDeclaratorSyntax variableDeclarator in field.Declaration.Variables) {
+										if (recordSymbol.GetMembers(variableDeclarator.Identifier.ValueText) is { } fieldSymbols
+											&& fieldSymbols[0] is IFieldSymbol { Type: ITypeSymbol fieldTypeSymbol }) {
+											AnalyzeRecordMemberType(context, field.Declaration.Type, fieldTypeSymbol);
+										}
+									}
+									break;
+								}
+						}
 					}
 				}
 			} catch (Exception exc) {
@@ -593,6 +698,106 @@ namespace RG.CodeAnalyzer {
 			Type symbolType = symbol.GetType();
 			PropertyInfo? prop = symbolType.GetRuntimeProperties().FirstOrDefault(rp => rp.Name.EndsWith("IsReadOnly", StringComparison.Ordinal));
 			return prop?.GetValue(symbol) is true;
+		}
+
+		private static void AnalyzeRecordMemberType(SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax, ITypeSymbol typeSymbol) {
+			switch (typeSymbol.SpecialType) {
+				case SpecialType.System_Boolean:
+				case SpecialType.System_Byte:
+				case SpecialType.System_Char:
+				case SpecialType.System_DateTime:
+				case SpecialType.System_Decimal:
+				case SpecialType.System_Delegate:
+				case SpecialType.System_Double:
+				case SpecialType.System_Int16:
+				case SpecialType.System_Int32:
+				case SpecialType.System_Int64:
+				case SpecialType.System_IntPtr:
+				case SpecialType.System_SByte:
+				case SpecialType.System_Single:
+				case SpecialType.System_String:
+				case SpecialType.System_UInt16:
+				case SpecialType.System_UInt32:
+				case SpecialType.System_UInt64:
+				case SpecialType.System_UIntPtr:
+					return;
+			}
+
+			switch (typeSymbol.ToString()) {
+				//case "System.Uri":
+				//	return;
+				case string typeSymbolName when typeSymbolName.Split('<')[0]
+					is "System.Memory"
+					or "System.Span": {
+						Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION, typeSyntax.GetLocation(), typeSyntax.ToString());
+						context.ReportDiagnostic(diagnostic);
+						return;
+					}
+			}
+
+			switch (typeSyntax) {
+				case NullableTypeSyntax { ElementType: var elementType }: {
+						if (context.SemanticModel.GetSymbolInfo(elementType, context.CancellationToken).Symbol is ITypeSymbol elementTypeSymbol) {
+							AnalyzeRecordMemberType(context, elementType, elementTypeSymbol);
+						}
+						return;
+					}
+				case ArrayTypeSyntax: {
+						Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION, typeSyntax.GetLocation(), typeSyntax.ToString());
+						context.ReportDiagnostic(diagnostic);
+						return;
+					}
+				case TupleTypeSyntax: {
+						Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE, typeSyntax.GetLocation(), typeSyntax.ToString(), "tuple");
+						context.ReportDiagnostic(diagnostic);
+						return;
+					}
+				case GenericNameSyntax { TypeArgumentList: { Arguments: var genericTypeArguments } } genericNameSyntax: {
+						if (typeSymbol.AllInterfaces.Any(interfaceSymbol => interfaceSymbol.ToString() == "System.Collections.IEnumerable")) {
+							if (typeSymbol.ContainingNamespace.ToString() == "System.Collections.Immutable") {
+								if (typeSymbol is INamedTypeSymbol namedTypeSymbol) {
+									foreach ((ITypeSymbol genericTypeArgument, TypeSyntax genericTypeSyntax) in namedTypeSymbol.TypeArguments.Zip(genericTypeArguments, (symbol, syntax) => (symbol, syntax))) {
+										AnalyzeRecordMemberType(context, genericTypeSyntax, genericTypeArgument);
+									}
+								}
+							} else {
+								Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION, typeSyntax.GetLocation(), typeSyntax.ToString());
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+						return;
+					}
+			}
+
+			if (typeSymbol.ToString() == "System.Collections.IEnumerable"
+				|| typeSymbol.AllInterfaces.Any(interfaceSymbol => interfaceSymbol.ToString() == "System.Collections.IEnumerable")) {
+				Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION, typeSyntax.GetLocation(), typeSyntax.ToString());
+				context.ReportDiagnostic(diagnostic);
+				return;
+			}
+
+			if (typeSymbol.TypeKind == TypeKind.Class
+				&& typeSymbol.DeclaringSyntaxReferences.Length > 0
+				&& typeSymbol.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax) {
+				return;
+			}
+
+			string? illegalTypeKind = typeSymbol.SpecialType switch {
+				SpecialType.System_Object => "object",
+				_ => typeSymbol.TypeKind switch {
+					TypeKind.Array => "array",
+					TypeKind.Class => "class",
+					TypeKind.Dynamic => "dynamic",
+					TypeKind.Interface => "interface",
+					TypeKind.Pointer => "pointer",
+					TypeKind.Struct => typeSymbol.ContainingNamespace.ToString() == "System" ? null : "struct",
+					_ => null
+				}
+			};
+			if (illegalTypeKind is not null) {
+				Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE, typeSyntax.GetLocation(), typeSyntax.ToString(), illegalTypeKind);
+				context.ReportDiagnostic(diagnostic);
+			}
 		}
 
 		internal static bool IsInPascalCase(string identifierName) {

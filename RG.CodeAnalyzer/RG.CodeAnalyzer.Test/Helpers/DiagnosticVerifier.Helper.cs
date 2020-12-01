@@ -17,6 +17,8 @@ namespace TestHelper {
 		private static readonly MetadataReference SYSTEM_CORE_REFERENCE = MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location);
 		private static readonly MetadataReference CSHARP_SYMBOLS_REFERENCE = MetadataReference.CreateFromFile(typeof(CSharpCompilation).Assembly.Location);
 		private static readonly MetadataReference CODE_ANALYSIS_REFERENCE = MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location);
+		private static readonly MetadataReference IMMUTABLE_REFERENCE = MetadataReference.CreateFromFile(typeof(ImmutableArray).Assembly.Location);
+		private static readonly MetadataReference SERIALIZATION_REFERENCE = MetadataReference.CreateFromFile(typeof(Uri).Assembly.Location);
 
 		internal static string DefaultFilePathPrefix = "Test";
 		internal static string CSharpDefaultFileExt = "cs";
@@ -134,7 +136,9 @@ namespace TestHelper {
 				.AddMetadataReference(projectId, CORLIB_REFERENCE)
 				.AddMetadataReference(projectId, SYSTEM_CORE_REFERENCE)
 				.AddMetadataReference(projectId, CSHARP_SYMBOLS_REFERENCE)
-				.AddMetadataReference(projectId, CODE_ANALYSIS_REFERENCE);
+				.AddMetadataReference(projectId, CODE_ANALYSIS_REFERENCE)
+				.AddMetadataReference(projectId, IMMUTABLE_REFERENCE)
+				.AddMetadataReference(projectId, SERIALIZATION_REFERENCE);
 
 			int count = 0;
 			foreach (string source in sources) {
