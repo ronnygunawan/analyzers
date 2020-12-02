@@ -175,7 +175,7 @@ record Foo(
 );
 ```
 
-### 18. Records should not contain reference to class or struct type
+### 18. Records should not contain reference to `class` or `struct` type
 ```cs
 class C { }
 struct S { }
