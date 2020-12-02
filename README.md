@@ -219,7 +219,6 @@ Foo foo = new() { // RG0019: 'Z' is a required property and should be initialize
     X = 0
 };
 ```
-<<<<<<< HEAD
 
 #### Shorthand for `[Required]` attribute
 You can also put an `@` prefix to record property name to mark it as a required property
@@ -234,5 +233,3 @@ Foo foo = new() { // RG0019: 'Z' is a required property and should be initialize
     X = 0
 };
 ```
-=======
->>>>>>> master
