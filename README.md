@@ -190,7 +190,7 @@ record Foo(
 
 #### Banned types
 - `class`
-- `struct` (See exceptions)
+- `struct` (See "Allowed structs")
 - `interface`
 - `dynamic`
 - `object`
