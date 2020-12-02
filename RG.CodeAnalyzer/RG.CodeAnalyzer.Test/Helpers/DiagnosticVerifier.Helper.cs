@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
 namespace TestHelper {
@@ -19,6 +20,7 @@ namespace TestHelper {
 		private static readonly MetadataReference CODE_ANALYSIS_REFERENCE = MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location);
 		private static readonly MetadataReference IMMUTABLE_REFERENCE = MetadataReference.CreateFromFile(typeof(ImmutableArray).Assembly.Location);
 		private static readonly MetadataReference SERIALIZATION_REFERENCE = MetadataReference.CreateFromFile(typeof(Uri).Assembly.Location);
+		private static readonly MetadataReference ANNOTATIONS_REFERENCE = MetadataReference.CreateFromFile(typeof(RequiredAttribute).Assembly.Location);
 
 		internal static string DefaultFilePathPrefix = "Test";
 		internal static string CSharpDefaultFileExt = "cs";
@@ -138,7 +140,8 @@ namespace TestHelper {
 				.AddMetadataReference(projectId, CSHARP_SYMBOLS_REFERENCE)
 				.AddMetadataReference(projectId, CODE_ANALYSIS_REFERENCE)
 				.AddMetadataReference(projectId, IMMUTABLE_REFERENCE)
-				.AddMetadataReference(projectId, SERIALIZATION_REFERENCE);
+				.AddMetadataReference(projectId, SERIALIZATION_REFERENCE)
+				.AddMetadataReference(projectId, ANNOTATIONS_REFERENCE);
 
 			int count = 0;
 			foreach (string source in sources) {

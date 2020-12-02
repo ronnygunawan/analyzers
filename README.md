@@ -149,3 +149,73 @@ f = f with { X = 1 }; // RG0013: 'with' used outside 'MyApp.Foo'
 int i = Convert.ToInt32("100"); // RG0014: Parsing 'int' using 'Convert.ToInt32'
                                 // Code fix: Change to 'int.Parse'
 ```
+
+### 15. Records should not contain `set` accessor
+```cs
+record Foo {
+    public int X { get; init; }
+    public int Y { get; set; } // RG0015: 'Y' should not have set accessor because it's declared in a record
+}
+```
+
+### 16. Records should not contain mutable field
+```cs
+record Foo {
+    public readonly int A, B;
+    public const int C;
+    public int D; // RG0016: 'D' should not be mutable because it's declared in a record
+}
+```
+
+### 17. Records should not contain mutable collection
+```cs
+record Foo(
+    ImmutableArray<int> A,
+    int[] B // RG0017: 'B' is a mutable collection and should not be used in a record
+);
+```
+
+### 18. Records should not contain reference to class or struct type
+```cs
+class C { }
+struct S { }
+record R { }
+
+record Foo(
+    C C, // RG0018: 'C' is class type and should not be used in a record
+    S S, // RG0018: 'S' is struct type and should not be used in a record
+    R R
+);
+```
+
+#### Banned types
+- `class`
+- `struct` (See exceptions)
+- `interface`
+- `dynamic`
+- `object`
+- `Tuple`
+
+#### Allowed types
+- `record`
+- `enum`
+- `delegate`
+
+#### Allowed `struct`s
+- Primitive value types are allowed.
+- `struct`s in `System` namespace are allowed.
+
+### 19. Required record property should be initialized
+```cs
+record Foo {
+    public int X { get; init; }
+    public int Y { get; init; }
+
+    [Required]
+    public int Z { get; init; }
+}
+
+Foo foo = new() { // RG0019: 'Z' is a required property and should be initialized
+    X = 0
+};
+```

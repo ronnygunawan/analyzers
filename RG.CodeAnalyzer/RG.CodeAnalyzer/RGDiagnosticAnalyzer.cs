@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace RG.CodeAnalyzer {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -29,8 +30,8 @@ namespace RG.CodeAnalyzer {
 		public const string RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD_ID = "RG0016";
 		public const string RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION_ID = "RG0017";
 		public const string RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE_ID = "RG0018";
-		public const string REQUIRED_PROPERTY_NOT_INITIALIZED_ID = "RG0019";
-		public const string VALUE_TYPE_PROPERTY_NOT_INITIALIZED_ID = "RG0020";
+		public const string REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID = "RG0019";
+		public const string VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID = "RG0020";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -194,6 +195,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Records should not contain reference to class or struct type.");
 
+		private static readonly DiagnosticDescriptor REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED = new(
+			id: REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID,
+			title: "Required record property should be initialized",
+			messageFormat: "'{0}' is a required property and should be initialized",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Required record property should be initialized.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -212,7 +222,8 @@ namespace RG.CodeAnalyzer {
 			RECORDS_SHOULD_NOT_CONTAIN_SET_ACCESSOR,
 			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD,
 			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION,
-			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE
+			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE,
+			REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -263,6 +274,9 @@ namespace RG.CodeAnalyzer {
 			// RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION
 			// RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE
 			context.RegisterSyntaxNodeAction(AnalyzeRecordDeclarations, SyntaxKind.RecordDeclaration);
+
+			// REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
+			context.RegisterSyntaxNodeAction(AnalyzeObjectInitializers, SyntaxKind.ObjectInitializerExpression);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -665,6 +679,61 @@ namespace RG.CodeAnalyzer {
 									}
 									break;
 								}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeObjectInitializers(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is InitializerExpressionSyntax { Parent: var parent, Expressions: var initializerExpressions } initializer) {
+					if (parent is BaseObjectCreationExpressionSyntax objectCreation
+						&& context.SemanticModel.GetTypeInfo(objectCreation, context.CancellationToken).Type is ITypeSymbol type
+						&& type.DeclaringSyntaxReferences.Length > 0
+						&& type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers } recordDeclaration) {
+						foreach (MemberDeclarationSyntax memberDeclaration in recordMembers) {
+							switch (memberDeclaration) {
+								case PropertyDeclarationSyntax propertyDeclaration: {
+										if (propertyDeclaration.AttributeLists
+											.SelectMany(attributeList => attributeList.Attributes)
+											.FirstOrDefault(attribute => attribute.Name.ToString() == "Required")
+											is AttributeSyntax requiredAttribute) {
+											if (context.SemanticModel.GetTypeInfo(requiredAttribute, context.CancellationToken).Type is INamedTypeSymbol requiredAttributeSymbol
+												&& requiredAttributeSymbol.ToString() == "System.ComponentModel.DataAnnotations.RequiredAttribute"
+												&& !initializerExpressions.Any(initializerExpression => {
+													return initializerExpression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var initializedMemberName } } }
+														&& initializedMemberName == propertyDeclaration.Identifier.ValueText;
+												})) {
+												Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), propertyDeclaration.Identifier.ValueText);
+												context.ReportDiagnostic(diagnostic);
+											}
+										}
+										break;
+									}
+								case FieldDeclarationSyntax fieldDeclaration: {
+										if (fieldDeclaration.AttributeLists
+											.SelectMany(attributeList => attributeList.Attributes)
+											.FirstOrDefault(attribute => attribute.Name.ToString() == "Required")
+											is AttributeSyntax requiredAttribute) {
+											if (context.SemanticModel.GetTypeInfo(requiredAttribute, context.CancellationToken).Type is INamedTypeSymbol requiredAttributeSymbol
+												&& requiredAttributeSymbol.ToString() == "System.ComponentModel.DataAnnotations.RequiredAttribute") {
+												foreach (VariableDeclaratorSyntax variableDeclarator in fieldDeclaration.Declaration.Variables) {
+													if (!initializerExpressions.Any(initializerExpression => {
+														return initializerExpression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var initializedMemberName } } }
+															&& fieldDeclaration.Declaration.Variables.Any(variableDeclarator => initializedMemberName == variableDeclarator.Identifier.ValueText);
+													})) {
+														Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), variableDeclarator.Identifier.ValueText);
+														context.ReportDiagnostic(diagnostic);
+													}
+												}
+											}
+										}
+										break;
+									}
+							}
 						}
 					}
 				}
