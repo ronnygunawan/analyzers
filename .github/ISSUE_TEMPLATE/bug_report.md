@@ -1,7 +1,8 @@
 ---
 name: Bug report
 affected diagnostics: RGXXXX
-description: ''
+about: ''
+title: ''
 
 ---
 
