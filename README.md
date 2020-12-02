@@ -219,3 +219,17 @@ Foo foo = new() { // RG0019: 'Z' is a required property and should be initialize
     X = 0
 };
 ```
+
+#### Shorthand for `[Required]` attribute
+You can also put an `@` prefix to record property name to mark it as a required property
+```cs
+record Foo {
+    public int X { get; init; }
+    public int Y { get; init; }
+    public int @Z { get; init; }
+}
+
+Foo foo = new() { // RG0019: 'Z' is a required property and should be initialized
+    X = 0
+};
+```

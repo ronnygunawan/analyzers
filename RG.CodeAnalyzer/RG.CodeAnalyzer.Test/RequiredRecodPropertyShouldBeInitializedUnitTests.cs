@@ -121,8 +121,6 @@ namespace RG.CodeAnalyzer.Test {
 
             [Required]
             public string? LastName { get; init; }
-
-            public readonly int X, Y;
         }
 
         public static class ClassName
@@ -158,8 +156,6 @@ namespace RG.CodeAnalyzer.Test {
 
             [Required]
             public string? LastName { get; init; }
-
-            public readonly int X, Y;
         }
 
         public static class ClassName
@@ -193,10 +189,7 @@ namespace RG.CodeAnalyzer.Test {
         {
             public string? FirstName { get; init; }
 
-            public string? LastName { get; init; }
-
-            [Required]
-            public readonly int X, Y;
+            public string? @LastName { get; init; }
         }
 
         public static class ClassName
@@ -207,81 +200,17 @@ namespace RG.CodeAnalyzer.Test {
             }
         }
     }";
-			DiagnosticResult expected1 = new() {
+			DiagnosticResult expected = new() {
 				Id = "RG0019",
-				Message = string.Format("'{0}' is a required property and should be initialized", "X"),
+				Message = string.Format("'{0}' is a required property and should be initialized", "LastName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 26, 49)
+						new DiagnosticResultLocation("Test0.cs", 23, 49)
 					}
 			};
 
-			DiagnosticResult expected2 = new() {
-				Id = "RG0019",
-				Message = string.Format("'{0}' is a required property and should be initialized", "Y"),
-				Severity = DiagnosticSeverity.Warning,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 26, 49)
-					}
-			};
-
-			VerifyCSharpDiagnostic(test, expected1, expected2);
-		}
-
-		[TestMethod]
-		public void TestMethod7() {
-			string test = @"
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel.DataAnnotations;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
-    using System.Diagnostics;
-
-    namespace ConsoleApplication1
-    {
-        public record RecordName
-        {
-            public string? FirstName { get; init; }
-
-            public string? LastName { get; init; }
-
-            [Required]
-            public readonly int X, Y;
-        }
-
-        public static class ClassName
-        {
-            public static void Main()
-            {
-                RecordName rec = new() { };
-            }
-        }
-    }";
-			DiagnosticResult expected1 = new() {
-				Id = "RG0019",
-				Message = string.Format("'{0}' is a required property and should be initialized", "X"),
-				Severity = DiagnosticSeverity.Warning,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 26, 40)
-					}
-			};
-
-			DiagnosticResult expected2 = new() {
-				Id = "RG0019",
-				Message = string.Format("'{0}' is a required property and should be initialized", "Y"),
-				Severity = DiagnosticSeverity.Warning,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 26, 40)
-					}
-			};
-
-			VerifyCSharpDiagnostic(test, expected1, expected2);
+			VerifyCSharpDiagnostic(test, expected);
 		}
 
 		protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {

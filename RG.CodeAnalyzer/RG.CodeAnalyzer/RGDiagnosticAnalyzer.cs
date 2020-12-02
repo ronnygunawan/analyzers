@@ -276,6 +276,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeRecordDeclarations, SyntaxKind.RecordDeclaration);
 
 			// REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
+			// REQUIRED_RECORD_FIELD_SHOULD_BE_INITIALIZED
 			context.RegisterSyntaxNodeAction(AnalyzeObjectInitializers, SyntaxKind.ObjectInitializerExpression);
 		}
 
@@ -697,7 +698,16 @@ namespace RG.CodeAnalyzer {
 						foreach (MemberDeclarationSyntax memberDeclaration in recordMembers) {
 							switch (memberDeclaration) {
 								case PropertyDeclarationSyntax propertyDeclaration: {
-										if (propertyDeclaration.AttributeLists
+										if (propertyDeclaration.Identifier.Text.Length > 0
+											&& propertyDeclaration.Identifier.Text[0] == '@') {
+											if (!initializerExpressions.Any(initializerExpression => {
+												return initializerExpression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var initializedMemberName } } }
+													&& initializedMemberName == propertyDeclaration.Identifier.ValueText;
+											})) {
+												Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), propertyDeclaration.Identifier.ValueText);
+												context.ReportDiagnostic(diagnostic);
+											}
+										} else if (propertyDeclaration.AttributeLists
 											.SelectMany(attributeList => attributeList.Attributes)
 											.FirstOrDefault(attribute => attribute.Name.ToString() == "Required")
 											is AttributeSyntax requiredAttribute) {
@@ -709,26 +719,6 @@ namespace RG.CodeAnalyzer {
 												})) {
 												Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), propertyDeclaration.Identifier.ValueText);
 												context.ReportDiagnostic(diagnostic);
-											}
-										}
-										break;
-									}
-								case FieldDeclarationSyntax fieldDeclaration: {
-										if (fieldDeclaration.AttributeLists
-											.SelectMany(attributeList => attributeList.Attributes)
-											.FirstOrDefault(attribute => attribute.Name.ToString() == "Required")
-											is AttributeSyntax requiredAttribute) {
-											if (context.SemanticModel.GetTypeInfo(requiredAttribute, context.CancellationToken).Type is INamedTypeSymbol requiredAttributeSymbol
-												&& requiredAttributeSymbol.ToString() == "System.ComponentModel.DataAnnotations.RequiredAttribute") {
-												foreach (VariableDeclaratorSyntax variableDeclarator in fieldDeclaration.Declaration.Variables) {
-													if (!initializerExpressions.Any(initializerExpression => {
-														return initializerExpression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var initializedMemberName } } }
-															&& fieldDeclaration.Declaration.Variables.Any(variableDeclarator => initializedMemberName == variableDeclarator.Identifier.ValueText);
-													})) {
-														Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), variableDeclarator.Identifier.ValueText);
-														context.ReportDiagnostic(diagnostic);
-													}
-												}
 											}
 										}
 										break;
