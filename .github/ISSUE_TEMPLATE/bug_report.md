@@ -1,7 +1,7 @@
 ---
 name: Bug report
 affected diagnostics: RGXXXX
-about: ''
+about: Describe the bug to help me improve the analyzer
 title: ''
 
 ---
