@@ -8,7 +8,7 @@ From Package Manager Console:
 Install-Package RG.CodeAnalyzer
 ```
 
-Best used together with [Microsoft.CodeAnalysis.FxCopAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.FxCopAnalyzers/) and [Roslynator](https://www.nuget.org/packages/Roslynator.Analyzers/)
+Best used together with [Microsoft.CodeAnalysis.NetAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.NetAnalyzers/) and [Roslynator](https://www.nuget.org/packages/Roslynator.Analyzers/)
 
 ### Q: There is nothing wrong with my code. How do I get rid of the warnings?
 You can either:
