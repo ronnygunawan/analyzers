@@ -783,8 +783,8 @@ namespace RG.CodeAnalyzer {
 			}
 
 			switch (typeSymbol.ToString()) {
-				//case "System.Uri":
-				//	return;
+				case "System.Uri":
+					return;
 				case string typeSymbolName when typeSymbolName.Split('<')[0]
 					is "System.Memory"
 					or "System.Span": {
@@ -849,7 +849,11 @@ namespace RG.CodeAnalyzer {
 					TypeKind.Dynamic => "dynamic",
 					TypeKind.Interface => "interface",
 					TypeKind.Pointer => "pointer",
-					TypeKind.Struct => typeSymbol.ContainingNamespace.ToString() == "System" ? null : "struct",
+					TypeKind.Struct => typeSymbol.ContainingNamespace.ToString() switch {
+						"System"
+						or "UnitsNet" => null,
+						_ => "struct"
+					},
 					_ => null
 				}
 			};

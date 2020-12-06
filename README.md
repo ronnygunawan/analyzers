@@ -189,7 +189,7 @@ record Foo(
 ```
 
 #### Banned types
-- `class`
+- `class` (See "Allowed classes")
 - `struct` (See "Allowed structs")
 - `interface`
 - `dynamic`
@@ -201,9 +201,13 @@ record Foo(
 - `enum`
 - `delegate`
 
+#### Allowed `class`es
+- `System.Uri`
+
 #### Allowed `struct`s
-- Primitive value types are allowed.
-- `struct`s in `System` namespace are allowed.
+- Primitive value types
+- `struct`s in `System` namespace
+- `struct`s in [`UnitsNet`](https://www.nuget.org/packages/UnitsNet/) namespace (3rd party library)
 
 ### 19. Required record property should be initialized
 ```cs
