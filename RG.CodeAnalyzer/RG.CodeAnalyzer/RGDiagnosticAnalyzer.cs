@@ -784,6 +784,21 @@ namespace RG.CodeAnalyzer {
 
 			switch (typeSymbol.ToString()) {
 				case "System.Uri":
+				case "System.Type":
+				case "System.Reflection.Module":
+				case "System.Reflection.Assembly":
+				case "System.Reflection.TypeInfo":
+				case "System.Reflection.MethodInfo":
+				case "System.Reflection.PropertyInfo":
+				case "System.Reflection.FieldInfo":
+				case "System.Reflection.ConstructorInfo":
+				case "System.Reflection.ParameterInfo":
+				case "System.Reflection.EventInfo":
+				case "System.Reflection.LocalVariableInfo":
+				case "System.Reflection.MemberInfo":
+				case "System.Reflection.ManifestResourceInfo":
+				case "System.Reflection.MethodBase":
+				case "System.Reflection.MethodBody":
 					return;
 				case string typeSymbolName when typeSymbolName.Split('<')[0]
 					is "System.Memory"

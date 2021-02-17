@@ -203,6 +203,21 @@ record Foo(
 
 #### Allowed `class`es
 - `System.Uri`
+- `System.Type`
+- `System.Reflection.Module`
+- `System.Reflection.Assembly`
+- `System.Reflection.TypeInfo`
+- `System.Reflection.MethodInfo`
+- `System.Reflection.PropertyInfo`
+- `System.Reflection.FieldInfo`
+- `System.Reflection.ConstructorInfo`
+- `System.Reflection.ParameterInfo`
+- `System.Reflection.EventInfo`
+- `System.Reflection.LocalVariableInfo`
+- `System.Reflection.MemberInfo`
+- `System.Reflection.ManifestResourceInfo`
+- `System.Reflection.MethodBase`
+- `System.Reflection.MethodBody`
 
 #### Allowed `struct`s
 - Primitive value types
