@@ -32,6 +32,8 @@ namespace RG.CodeAnalyzer {
 		public const string RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE_ID = "RG0018";
 		public const string REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID = "RG0019";
 		public const string VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID = "RG0020";
+		public const string LOCAL_IS_READONLY_ID = "RG0021";
+		public const string PARAMETER_IS_READONLY_ID = "RG0022";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -204,6 +206,24 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Required record property should be initialized.");
 
+		private static readonly DiagnosticDescriptor LOCAL_IS_READONLY = new(
+			id: LOCAL_IS_READONLY_ID,
+			title: "Local variable is readonly",
+			messageFormat: "'{0}' is a readonly local variable",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Local variables prefixed with an '@' are readonly.");
+
+		private static readonly DiagnosticDescriptor PARAMETER_IS_READONLY = new(
+			id: PARAMETER_IS_READONLY_ID,
+			title: "Parameter is readonly",
+			messageFormat: "'{0}' is a readonly parameter",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Paeameters prefixed with an '@' are readonly.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -223,7 +243,9 @@ namespace RG.CodeAnalyzer {
 			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_FIELD,
 			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION,
 			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE,
-			REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
+			REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED,
+			LOCAL_IS_READONLY,
+			PARAMETER_IS_READONLY
 		);
 
 		public override void Initialize(AnalysisContext context) {

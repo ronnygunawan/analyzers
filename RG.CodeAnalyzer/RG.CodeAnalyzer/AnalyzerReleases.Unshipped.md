@@ -23,3 +23,5 @@ RG0016 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0017 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0018 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0019 | Code Quality | Warning | RGDiagnosticAnalyzer
+RG0021 | Code Quality | Warning | RGDiagnosticAnalyzer
+RG0022 | Code Quality | Warning | RGDiagnosticAnalyzer

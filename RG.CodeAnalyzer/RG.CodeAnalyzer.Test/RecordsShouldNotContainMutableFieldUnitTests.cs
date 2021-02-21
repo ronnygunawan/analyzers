@@ -228,6 +228,28 @@ namespace RG.CodeAnalyzer.Test {
 			VerifyCSharpDiagnostic(test, expected);
 		}
 
+		[TestMethod]
+		public void TestMethod10() {
+			string test = @"
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Diagnostics;
+    using System.Reflection;
+
+    namespace ConsoleApplication1
+    {
+        public record RecordName
+        {
+            private readonly Type? T;
+            private readonly MethodInfo? M; 
+        }
+    }";
+			VerifyCSharpDiagnostic(test);
+		}
+
 		protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
 			return new RGDiagnosticAnalyzer();
 		}
