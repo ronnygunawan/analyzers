@@ -34,6 +34,8 @@ namespace RG.CodeAnalyzer {
 		public const string VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID = "RG0020";
 		public const string LOCAL_IS_READONLY_ID = "RG0021";
 		public const string PARAMETER_IS_READONLY_ID = "RG0022";
+		public const string REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY_ID = "RG0023";
+		public const string IN_ARGUMENT_SHOULD_BE_READONLY_ID = "RG0024";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -222,7 +224,25 @@ namespace RG.CodeAnalyzer {
 			category: "Code Quality",
 			defaultSeverity: DiagnosticSeverity.Warning,
 			isEnabledByDefault: true,
-			description: "Paeameters prefixed with an '@' are readonly.");
+			description: "Parameters prefixed with an '@' are readonly.");
+
+		private static readonly DiagnosticDescriptor REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY = new(
+			id: REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY_ID,
+			title: "Ref or out parameter cannot be readonly",
+			messageFormat: "'{0}' parameter '{1}' cannot be readonly",
+			category: "Usage",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Ref or out parameters cannot be readonly.");
+
+		private static readonly DiagnosticDescriptor IN_ARGUMENT_SHOULD_BE_READONLY = new(
+			id: IN_ARGUMENT_SHOULD_BE_READONLY_ID,
+			title: "In argument should be readonly",
+			messageFormat: "'in' argument '{0}' should be readonly",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "In argument should be readonly.");
 
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
@@ -245,7 +265,9 @@ namespace RG.CodeAnalyzer {
 			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE,
 			REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED,
 			LOCAL_IS_READONLY,
-			PARAMETER_IS_READONLY
+			PARAMETER_IS_READONLY,
+			REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY,
+			IN_ARGUMENT_SHOULD_BE_READONLY
 		);
 
 		public override void Initialize(AnalysisContext context) {

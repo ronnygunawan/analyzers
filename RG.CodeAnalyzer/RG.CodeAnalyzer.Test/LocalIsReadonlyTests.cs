@@ -177,6 +177,14 @@ namespace Namespace {
 			ref int mutableLocalName = ref readonlyLocalName; // not allowed
 			ref int @readonlyLocal2 = ref readonlyLocalName; // allowed
 			ref int @readonlyLocal3 = ref mutableLocalName; // not allowed
+			ref int @readonlyLocal4 = ref MutableFieldName; // not allowed
+			ref readonly int @readonlyLocal5 = ref mutableLocalName; // not allowed
+			ref readonly int @readonlyLocal6 = ref MethodName(in readonlyLocalName); // allowed
+			ref readonly int @readonlyLocal7 = ref MethodName(in mutableLocalName); // not allowed
+		}
+		int MutableFieldName = 0;
+		ref readonly int MethodName(in int value) {
+			return ref value;
 		}
 	}
 }";
@@ -197,12 +205,36 @@ namespace Namespace {
 					new DiagnosticResultLocation("Test0.cs", 8, 4)
 				}
 			};
+			DiagnosticResult expected3 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal4"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 9, 4)
+				}
+			};
+			DiagnosticResult expected4 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal5"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 10, 4)
+				}
+			};
+			DiagnosticResult expected5 = new() {
+				Id = "RG0024",
+				Message = string.Format("'in' argument '{0}' should be readonly", "mutableLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 12, 54)
+				}
+			};
 
-			VerifyCSharpDiagnostic(test, expected1, expected2);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4, expected5);
 		}
 
 		[TestMethod]
-		public void TestRefParameter() {
+		public void TestRefArgument() {
 			string test = @"
 namespace Namespace {
 	class ClassName {
@@ -231,7 +263,7 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		public void TestOutParameter() {
+		public void TestOutArgument() {
 			string test = @"
 namespace Namespace {
 	class ClassName {
@@ -243,6 +275,34 @@ namespace Namespace {
 		}
 		void SetToOne(out int value) {
 			value = 1;
+		}
+	}
+}";
+
+			DiagnosticResult expected = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 6, 13)
+				}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
+		}
+
+		[TestMethod]
+		public void TestReturnRef() {
+			string test = @"
+namespace Namespace {
+	class ClassName {
+		void MethodName() {
+			int value = 0;
+			
+		}
+		ref int Method2(ref int value) {
+			ref int @readonlyLocalName = ref value;
+			return ref readonlyLocalName;
 		}
 	}
 }";
