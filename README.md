@@ -218,6 +218,7 @@ record Foo(
 - `System.Reflection.ManifestResourceInfo`
 - `System.Reflection.MethodBase`
 - `System.Reflection.MethodBody`
+- `System.Net.IPAddress`
 
 #### Allowed `struct`s
 - Primitive value types

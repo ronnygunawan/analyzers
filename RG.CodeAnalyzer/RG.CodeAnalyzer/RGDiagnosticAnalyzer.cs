@@ -821,6 +821,7 @@ namespace RG.CodeAnalyzer {
 				case "System.Reflection.ManifestResourceInfo":
 				case "System.Reflection.MethodBase":
 				case "System.Reflection.MethodBody":
+				case "System.Net.IPAddress":
 					return;
 				case string typeSymbolName when typeSymbolName.Split('<')[0]
 					is "System.Memory"
