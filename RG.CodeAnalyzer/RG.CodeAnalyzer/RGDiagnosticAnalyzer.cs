@@ -285,6 +285,12 @@ namespace RG.CodeAnalyzer {
 			// DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT
 			context.RegisterSyntaxNodeAction(AnalyzeUsingDeclarationStatement, SyntaxKind.LocalDeclarationStatement);
 
+			// LOCAL_IS_READONLY
+			context.RegisterSyntaxNodeAction(AnalyzeReadonlyLocals, SyntaxKind.LocalDeclarationStatement);
+
+			// LOCAL_IS_READONLY
+			context.RegisterSyntaxNodeAction(AnalyzeReadonlyDeclarationExpressions, SyntaxKind.DeclarationExpression);
+
 			// IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 
@@ -435,6 +441,78 @@ namespace RG.CodeAnalyzer {
 				}
 			} catch (Exception exc) {
 				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeReadonlyLocals(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is LocalDeclarationStatementSyntax { Declaration: { Variables: var variables } } localDeclarationStatementSyntax) {
+					foreach (VariableDeclaratorSyntax variableDeclaratorSyntax in variables) {
+						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
+							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+							if (localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
+								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeReadonlyDeclarationExpressions(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax { Identifier: var declaredIdentifier } } declarationExpressionSyntax
+					&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+					if (declarationExpressionSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
+						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeReadonlyLocalUsages(SyntaxNodeAnalysisContext context, SyntaxToken declaredIdentifier, SyntaxNode scopeNode) {
+			foreach (SyntaxNode node in scopeNode.DescendantNodes()) {
+				switch (node) {
+					case AssignmentExpressionSyntax assignmentExpressionSyntax
+					when assignmentExpressionSyntax.Left is IdentifierNameSyntax { Identifier: var identifier }
+						&& declaredIdentifier.ValueText == identifier.ValueText: {
+							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, assignmentExpressionSyntax.GetLocation(), identifier.ValueText);
+							context.ReportDiagnostic(diagnostic);
+							break;
+						}
+					case AssignmentExpressionSyntax assignmentExpressionSyntax
+					when assignmentExpressionSyntax.Left is TupleExpressionSyntax { Arguments: var tupleArguments }: {
+							foreach (ArgumentSyntax tupleArgument in tupleArguments) {
+								switch (tupleArgument.Expression) {
+									case IdentifierNameSyntax { Identifier: var identifier }
+									when declaredIdentifier.ValueText == identifier.ValueText: {
+											Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, tupleArgument.GetLocation(), identifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
+											break;
+										}
+								}
+							}
+							break;
+						}
+					case PrefixUnaryExpressionSyntax { Operand: IdentifierNameSyntax { Identifier: var identifier } } prefixUnaryExpressionSyntax
+					when prefixUnaryExpressionSyntax.OperatorToken.Kind() is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken
+						&& declaredIdentifier.ValueText == identifier.ValueText: {
+							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, prefixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
+							context.ReportDiagnostic(diagnostic);
+							break;
+						}
+					case PostfixUnaryExpressionSyntax { Operand: IdentifierNameSyntax { Identifier: var identifier } } postfixUnaryExpressionSyntax
+					when postfixUnaryExpressionSyntax.OperatorToken.Kind() is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken
+						&& declaredIdentifier.ValueText == identifier.ValueText: {
+							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, postfixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
+							context.ReportDiagnostic(diagnostic);
+							break;
+						}
+				}
 			}
 		}
 

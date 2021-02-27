@@ -42,11 +42,14 @@ namespace Namespace {
 			(readonlyLocalName, _) = (1, 1);
 			int mutableLocalName = 0;
 			(mutableLocalName, _) = (1, 1);
+			(int @readonlyLocal2, int @readonlyLocal3) = (0, 0);
+			readonlyLocal2 = 1;
+			readonlyLocal3 = 1;
 		}
 	}
 }";
 
-			DiagnosticResult expected = new() {
+			DiagnosticResult expected1 = new() {
 				Id = "RG0021",
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
@@ -54,8 +57,24 @@ namespace Namespace {
 					new DiagnosticResultLocation("Test0.cs", 6, 5)
 				}
 			};
+			DiagnosticResult expected2 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal2"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 10, 4)
+				}
+			};
+			DiagnosticResult expected3 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal3"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 11, 4)
+				}
+			};
 
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3);
 		}
 
 		[TestMethod]
@@ -78,19 +97,40 @@ namespace Namespace {
 	}
 }";
 
-			DiagnosticResult expected = new() {
+			DiagnosticResult expected1 = new() {
 				Id = "RG0021",
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 6, 4),
-					new DiagnosticResultLocation("Test0.cs", 7, 4),
-					new DiagnosticResultLocation("Test0.cs", 8, 4),
+					new DiagnosticResultLocation("Test0.cs", 6, 4)
+				}
+			};
+			DiagnosticResult expected2 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 7, 4)
+				}
+			};
+			DiagnosticResult expected3 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 8, 4)
+				}
+			};
+			DiagnosticResult expected4 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
 					new DiagnosticResultLocation("Test0.cs", 9, 4)
 				}
 			};
 
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4);
 		}
 
 		[TestMethod]
