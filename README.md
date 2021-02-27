@@ -1,6 +1,6 @@
 # RG.CodeAnalyzer
 
-[![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/)
+[![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/) [![.NET](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml/badge.svg)](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml)
 
 ## Installation
 From Package Manager Console:
