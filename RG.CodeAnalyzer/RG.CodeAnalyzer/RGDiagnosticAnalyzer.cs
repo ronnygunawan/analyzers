@@ -512,6 +512,13 @@ namespace RG.CodeAnalyzer {
 							context.ReportDiagnostic(diagnostic);
 							break;
 						}
+					case ArgumentSyntax { Expression: IdentifierNameSyntax { Identifier: var identifier } } refOrOutArgumentSyntax
+					when refOrOutArgumentSyntax.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword
+						&& declaredIdentifier.ValueText == identifier.ValueText: {
+							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, refOrOutArgumentSyntax.GetLocation(), identifier.ValueText);
+							context.ReportDiagnostic(diagnostic);
+							break;
+						}
 				}
 			}
 		}

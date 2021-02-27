@@ -148,9 +148,6 @@ namespace Namespace {
 			readonlyLocalName &= 1;
 			readonlyLocalName |= 1;
 			readonlyLocalName ^= 1;
-			bool @readonlyBool = false;
-			readonlyBool &&= true;
-			readonlyBool ||= true;
 			int? @readonlyNullable = null;
 			readonlyNullable ??= 1;
 			int mutableLocalName = 0;
@@ -162,9 +159,6 @@ namespace Namespace {
 			mutableLocalName &= 1;
 			mutableLocalName |= 1;
 			mutableLocalName ^= 1;
-			bool mutableBool = false;
-			mutableBool &&= true;
-			mutableBool ||= true;
 			int? mutableNullable = null;
 			mutableNullable ??= 1;
 		}
@@ -176,35 +170,75 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 6, 4),
-					new DiagnosticResultLocation("Test0.cs", 7, 4),
-					new DiagnosticResultLocation("Test0.cs", 8, 4),
-					new DiagnosticResultLocation("Test0.cs", 9, 4),
-					new DiagnosticResultLocation("Test0.cs", 10, 4),
-					new DiagnosticResultLocation("Test0.cs", 11, 4),
-					new DiagnosticResultLocation("Test0.cs", 12, 4),
-					new DiagnosticResultLocation("Test0.cs", 13, 4)
+					new DiagnosticResultLocation("Test0.cs", 6, 4)
 				}
 			};
 			DiagnosticResult expected2 = new() {
 				Id = "RG0021",
-				Message = string.Format("'{0}' is a readonly local variable", "readonlyBool"),
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 15, 4),
-					new DiagnosticResultLocation("Test0.cs", 16, 4)
+					new DiagnosticResultLocation("Test0.cs", 7, 4)
 				}
 			};
 			DiagnosticResult expected3 = new() {
 				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 8, 4)
+				}
+			};
+			DiagnosticResult expected4 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 9, 4)
+				}
+			};
+			DiagnosticResult expected5 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 10, 4)
+				}
+			};
+			DiagnosticResult expected6 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 11, 4)
+				}
+			};
+			DiagnosticResult expected7 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 12, 4)
+				}
+			};
+			DiagnosticResult expected8 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 13, 4)
+				}
+			};
+			DiagnosticResult expected9 = new() {
+				Id = "RG0021",
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyNullable"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 18, 4)
+					new DiagnosticResultLocation("Test0.cs", 15, 4)
 				}
 			};
 
-			VerifyCSharpDiagnostic(test, expected1, expected2, expected3);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4, expected5, expected6, expected7, expected8, expected9);
 		}
 
 		[TestMethod]
@@ -374,7 +408,7 @@ namespace Namespace {
 
 			DiagnosticResult expected = new() {
 				Id = "RG0021",
-				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Message = string.Format("'{0}' is a readonly local variable", "ReadonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
 					new DiagnosticResultLocation("Test0.cs", 6, 4)
@@ -389,7 +423,7 @@ namespace Namespace {
 			string test = @"
 namespace Namespace {
 	class ClassName {
-		void MethodName() {
+		void MethodName() { 
 			InitToZero(out int @readonlyLocalName);
 			readonlyLocalName = 1;
 			InitToZero(out int mutableLocalName);
