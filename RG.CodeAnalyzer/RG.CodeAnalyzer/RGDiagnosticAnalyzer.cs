@@ -295,6 +295,7 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeForStatements, SyntaxKind.ForStatement);
 
 			// PARAMETER_IS_READONLY
+			// REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY
 			context.RegisterSyntaxNodeAction(AnalyzeParameters, SyntaxKind.Parameter);
 
 			// IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL
@@ -501,12 +502,27 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is ParameterSyntax { Identifier: var declaredIdentifier } parameterSyntax
 					&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
-					if (parameterSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind()
-						is SyntaxKind.MethodDeclaration
-						or SyntaxKind.SimpleLambdaExpression
-						or SyntaxKind.ParenthesizedLambdaExpression
-						or SyntaxKind.IndexerDeclaration) is SyntaxNode scopeNode) {
-						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, PARAMETER_IS_READONLY);
+					switch (parameterSyntax.Modifiers.Select(modifier => modifier.Kind()).FirstOrDefault(kind => kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword)) {
+						case SyntaxKind.RefKeyword: {
+								Diagnostic diagnostic = Diagnostic.Create(REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY, parameterSyntax.GetLocation(), "ref", declaredIdentifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+								break;
+							}
+						case SyntaxKind.OutKeyword: {
+								Diagnostic diagnostic = Diagnostic.Create(REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY, parameterSyntax.GetLocation(), "out", declaredIdentifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+								break;
+							}
+						default: {
+								if (parameterSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind()
+									is SyntaxKind.MethodDeclaration
+									or SyntaxKind.SimpleLambdaExpression
+									or SyntaxKind.ParenthesizedLambdaExpression
+									or SyntaxKind.IndexerDeclaration) is SyntaxNode scopeNode) {
+									AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, PARAMETER_IS_READONLY);
+								}
+								break;
+							}
 					}
 				}
 			} catch (Exception exc) {
