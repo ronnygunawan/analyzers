@@ -291,6 +291,9 @@ namespace RG.CodeAnalyzer {
 			// LOCAL_IS_READONLY
 			context.RegisterSyntaxNodeAction(AnalyzeReadonlyDeclarationExpressions, SyntaxKind.DeclarationExpression);
 
+			// LOCAL_IS_READONLY
+			context.RegisterSyntaxNodeAction(AnalyzeForStatements, SyntaxKind.ForStatement);
+
 			// IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 
@@ -467,6 +470,23 @@ namespace RG.CodeAnalyzer {
 					&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 					if (declarationExpressionSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
 						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeForStatements(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is ForStatementSyntax { Declaration: { Variables: var variables } } forStatementDeclarationSyntax) {
+					foreach (VariableDeclaratorSyntax variableDeclaratorSyntax in variables) {
+						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
+							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+							if (forStatementDeclarationSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
+								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+							}
+						}
 					}
 				}
 			} catch (Exception exc) {

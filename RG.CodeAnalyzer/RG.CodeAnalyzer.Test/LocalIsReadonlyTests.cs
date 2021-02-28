@@ -464,7 +464,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "i"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 5, 19)
+					new DiagnosticResultLocation("Test0.cs", 5, 29)
 				}
 			};
 

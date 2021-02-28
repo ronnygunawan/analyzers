@@ -5,7 +5,7 @@ using TestHelper;
 
 namespace RG.CodeAnalyzer.Test {
 	[TestClass]
-	public class PropertyIsReadonlyTests : CodeFixVerifier {
+	public class ParameterIsReadonlyTests : CodeFixVerifier {
 		[TestMethod]
 		public void TestAssignment() {
 			string test = @"
