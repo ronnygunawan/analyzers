@@ -255,6 +255,10 @@ namespace Namespace {
 			ref readonly int @readonlyLocal5 = ref mutableLocalName; // not allowed
 			ref readonly int @readonlyLocal6 = ref MethodName(in readonlyLocalName); // allowed
 			ref readonly int @readonlyLocal7 = ref MethodName(in mutableLocalName); // not allowed
+			ref mutableLocalName = ref readonlyLocalName; // not allowed
+			ref readonlyLocal2 = ref readonlyLocalName; // allowed
+			ref readonlyLocal3 = ref mutableLocalName; // allowed
+			ref readonlyLocal4 = ref MutableFieldName; // not allowed
 		}
 		int MutableFieldName = 0;
 		ref readonly int MethodName(in int value) {

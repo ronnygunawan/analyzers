@@ -294,6 +294,9 @@ namespace RG.CodeAnalyzer {
 			// LOCAL_IS_READONLY
 			context.RegisterSyntaxNodeAction(AnalyzeForStatements, SyntaxKind.ForStatement);
 
+			// PARAMETER_IS_READONLY
+			context.RegisterSyntaxNodeAction(AnalyzeParameters, SyntaxKind.Parameter);
+
 			// IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL
 			context.RegisterSymbolAction(AnalyzeNamedTypeDeclaration, SymbolKind.NamedType);
 
@@ -454,7 +457,7 @@ namespace RG.CodeAnalyzer {
 						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
 							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 							if (localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
-								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, LOCAL_IS_READONLY);
 							}
 						}
 					}
@@ -469,7 +472,7 @@ namespace RG.CodeAnalyzer {
 				if (context.Node is DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax { Identifier: var declaredIdentifier } } declarationExpressionSyntax
 					&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 					if (declarationExpressionSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
-						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, LOCAL_IS_READONLY);
 					}
 				}
 			} catch (Exception exc) {
@@ -484,7 +487,7 @@ namespace RG.CodeAnalyzer {
 						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
 							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 							if (forStatementDeclarationSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
-								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode);
+								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, LOCAL_IS_READONLY);
 							}
 						}
 					}
@@ -494,13 +497,30 @@ namespace RG.CodeAnalyzer {
 			}
 		}
 
-		private static void AnalyzeReadonlyLocalUsages(SyntaxNodeAnalysisContext context, SyntaxToken declaredIdentifier, SyntaxNode scopeNode) {
+		private static void AnalyzeParameters(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is ParameterSyntax { Identifier: var declaredIdentifier } parameterSyntax
+					&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+					if (parameterSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind()
+						is SyntaxKind.MethodDeclaration
+						or SyntaxKind.SimpleLambdaExpression
+						or SyntaxKind.ParenthesizedLambdaExpression
+						or SyntaxKind.IndexerDeclaration) is SyntaxNode scopeNode) {
+						AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, PARAMETER_IS_READONLY);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeReadonlyLocalUsages(SyntaxNodeAnalysisContext context, SyntaxToken declaredIdentifier, SyntaxNode scopeNode, DiagnosticDescriptor diagnosticDescriptor) {
 			foreach (SyntaxNode node in scopeNode.DescendantNodes()) {
 				switch (node) {
 					case AssignmentExpressionSyntax assignmentExpressionSyntax
 					when assignmentExpressionSyntax.Left is IdentifierNameSyntax { Identifier: var identifier }
 						&& declaredIdentifier.ValueText == identifier.ValueText: {
-							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, assignmentExpressionSyntax.GetLocation(), identifier.ValueText);
+							Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, assignmentExpressionSyntax.GetLocation(), identifier.ValueText);
 							context.ReportDiagnostic(diagnostic);
 							break;
 						}
@@ -510,7 +530,7 @@ namespace RG.CodeAnalyzer {
 								switch (tupleArgument.Expression) {
 									case IdentifierNameSyntax { Identifier: var identifier }
 									when declaredIdentifier.ValueText == identifier.ValueText: {
-											Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, tupleArgument.GetLocation(), identifier.ValueText);
+											Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, tupleArgument.GetLocation(), identifier.ValueText);
 											context.ReportDiagnostic(diagnostic);
 											break;
 										}
@@ -521,21 +541,21 @@ namespace RG.CodeAnalyzer {
 					case PrefixUnaryExpressionSyntax { Operand: IdentifierNameSyntax { Identifier: var identifier } } prefixUnaryExpressionSyntax
 					when prefixUnaryExpressionSyntax.OperatorToken.Kind() is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken
 						&& declaredIdentifier.ValueText == identifier.ValueText: {
-							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, prefixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
+							Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, prefixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
 							context.ReportDiagnostic(diagnostic);
 							break;
 						}
 					case PostfixUnaryExpressionSyntax { Operand: IdentifierNameSyntax { Identifier: var identifier } } postfixUnaryExpressionSyntax
 					when postfixUnaryExpressionSyntax.OperatorToken.Kind() is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken
 						&& declaredIdentifier.ValueText == identifier.ValueText: {
-							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, postfixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
+							Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, postfixUnaryExpressionSyntax.GetLocation(), identifier.ValueText);
 							context.ReportDiagnostic(diagnostic);
 							break;
 						}
 					case ArgumentSyntax { Expression: IdentifierNameSyntax { Identifier: var identifier } } refOrOutArgumentSyntax
 					when refOrOutArgumentSyntax.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword
 						&& declaredIdentifier.ValueText == identifier.ValueText: {
-							Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, refOrOutArgumentSyntax.GetLocation(), identifier.ValueText);
+							Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refOrOutArgumentSyntax.GetLocation(), identifier.ValueText);
 							context.ReportDiagnostic(diagnostic);
 							break;
 						}

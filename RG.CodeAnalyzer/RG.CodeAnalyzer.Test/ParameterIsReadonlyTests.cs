@@ -102,19 +102,40 @@ namespace Namespace {
 	}
 }";
 
-			DiagnosticResult expected = new() {
+			DiagnosticResult expected1 = new() {
 				Id = "RG0022",
 				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 5, 4),
-					new DiagnosticResultLocation("Test0.cs", 6, 4),
-					new DiagnosticResultLocation("Test0.cs", 7, 4),
+					new DiagnosticResultLocation("Test0.cs", 5, 4)
+				}
+			};
+			DiagnosticResult expected2 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 6, 4)
+				}
+			};
+			DiagnosticResult expected3 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 7, 4)
+				}
+			};
+			DiagnosticResult expected4 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
 					new DiagnosticResultLocation("Test0.cs", 8, 4)
 				}
 			};
 
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4);
 		}
 
 		[TestMethod]
@@ -131,8 +152,6 @@ namespace Namespace {
 			readonlyParamName &= 1;
 			readonlyParamName |= 1;
 			readonlyParamName ^= 1;
-			readonlyBool &&= true;
-			readonlyBool ||= true;
 			readonlyNullable ??= 1;
 			mutableParamName += 1;
 			mutableParamName -= 1;
@@ -142,8 +161,6 @@ namespace Namespace {
 			mutableParamName &= 1;
 			mutableParamName |= 1;
 			mutableParamName ^= 1;
-			mutableBool &&= true;
-			mutableBool ||= true;
 			mutableNullable ??= 1;
 		}
 	}
@@ -154,35 +171,75 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 5, 4),
-					new DiagnosticResultLocation("Test0.cs", 6, 4),
-					new DiagnosticResultLocation("Test0.cs", 7, 4),
-					new DiagnosticResultLocation("Test0.cs", 8, 4),
-					new DiagnosticResultLocation("Test0.cs", 9, 4),
-					new DiagnosticResultLocation("Test0.cs", 10, 4),
-					new DiagnosticResultLocation("Test0.cs", 11, 4),
-					new DiagnosticResultLocation("Test0.cs", 12, 4)
+					new DiagnosticResultLocation("Test0.cs", 5, 4)
 				}
 			};
 			DiagnosticResult expected2 = new() {
 				Id = "RG0022",
-				Message = string.Format("'{0}' is a readonly parameter", "readonlyBool"),
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 13, 4),
-					new DiagnosticResultLocation("Test0.cs", 14, 4)
+					new DiagnosticResultLocation("Test0.cs", 6, 4)
 				}
 			};
 			DiagnosticResult expected3 = new() {
 				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 7, 4)
+				}
+			};
+			DiagnosticResult expected4 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 8, 4)
+				}
+			};
+			DiagnosticResult expected5 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 9, 4)
+				}
+			};
+			DiagnosticResult expected6 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 10, 4)
+				}
+			};
+			DiagnosticResult expected7 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 11, 4)
+				}
+			};
+			DiagnosticResult expected8 = new() {
+				Id = "RG0022",
+				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 12, 4)
+				}
+			};
+			DiagnosticResult expected9 = new() {
+				Id = "RG0022",
 				Message = string.Format("'{0}' is a readonly parameter", "readonlyNullable"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 15, 4)
+					new DiagnosticResultLocation("Test0.cs", 13, 4)
 				}
 			};
 
-			VerifyCSharpDiagnostic(test, expected1, expected2, expected3);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4, expected5, expected6, expected7, expected8, expected9);
 		}
 
 		[TestMethod]
