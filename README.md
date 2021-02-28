@@ -253,3 +253,33 @@ Foo foo = new() { // RG0019: 'Z' is a required property and should be initialize
     X = 0
 };
 ```
+
+### 20. (Reserved for [#43](/../../issues/43))
+
+### 21. Local is readonly
+Put an `@` prefix to local name to mark it as a readonly local
+```cs
+int @max = 100;
+max = 50; // RG0021: 'max' is a readonly local variable
+
+```
+
+---
+**NOTE**
+
+This is a work in progress and does not currently support `ref` locals, `ref readonly` locals, and `ref` expressions.
+
+---
+
+### 22. Parameter is readonly
+```cs
+void Foo(int @x) {
+    x = 0; // RG0022: 'x' is a readonly parameter
+}
+```
+
+### 23. Ref or out parameter cannot be readonly
+```cs
+void Foo(out int @x) { // RG0023: 'out' parameter 'x' cannot be readonly
+}
+```
