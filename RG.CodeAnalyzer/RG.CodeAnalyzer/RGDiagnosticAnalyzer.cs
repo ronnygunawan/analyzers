@@ -828,9 +828,11 @@ namespace RG.CodeAnalyzer {
 			try {
 				if (context.Node is RecordDeclarationSyntax
 					{
-						Members: { } members
+						Members: { } members,
+						AttributeLists: var attributeLists
 					} recordDeclaration
-					&& context.SemanticModel.GetDeclaredSymbol(recordDeclaration, context.CancellationToken) is INamedTypeSymbol recordSymbol) {
+					&& context.SemanticModel.GetDeclaredSymbol(recordDeclaration, context.CancellationToken) is INamedTypeSymbol recordSymbol
+					&& !attributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "Mutable" or "RG.Annotations.Mutable"))) {
 					if (recordDeclaration.ParameterList is { } parameterList) {
 						foreach (ParameterSyntax parameter in parameterList.Parameters) {
 							if (parameter.Type is not null
@@ -898,7 +900,7 @@ namespace RG.CodeAnalyzer {
 											}
 										} else if (propertyDeclaration.AttributeLists
 											.SelectMany(attributeList => attributeList.Attributes)
-											.FirstOrDefault(attribute => attribute.Name.ToString() == "Required")
+											.FirstOrDefault(attribute => attribute.Name.ToString() is "Required" or "System.ComponentModel.DataAnnotations.Required")
 											is AttributeSyntax requiredAttribute) {
 											if (context.SemanticModel.GetTypeInfo(requiredAttribute, context.CancellationToken).Type is INamedTypeSymbol requiredAttributeSymbol
 												&& requiredAttributeSymbol.ToString() == "System.ComponentModel.DataAnnotations.RequiredAttribute"
@@ -949,6 +951,12 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeRecordMemberType(SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax, ITypeSymbol typeSymbol) {
+			if (typeSymbol.GetAttributes().Any(attributeData => attributeData.AttributeClass is { Name: "MutableAttribute" })) {
+				Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE, typeSyntax.GetLocation(), typeSyntax.ToString(), "mutable");
+				context.ReportDiagnostic(diagnostic);
+				return;
+			}
+
 			switch (typeSymbol.SpecialType) {
 				case SpecialType.System_Boolean:
 				case SpecialType.System_Byte:

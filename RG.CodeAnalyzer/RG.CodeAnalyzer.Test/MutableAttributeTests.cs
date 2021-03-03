@@ -61,7 +61,7 @@ namespace NamespaceName {
 using RG.Annotations;
 
 namespace NamespaceName {
-	[Mutable]
+	[RG.Annotations.Mutable]
 	record RecordName {
 		List<int> X { get; init; }
 		int[] Y { get; init; }
@@ -76,6 +76,7 @@ namespace NamespaceName {
 		public void MutableTypesNotAllowedInImmutableRecords() {
 			string test = @"
 using RG.Annotations;
+using System.Collections.Immutable;
 
 namespace NamespaceName {
 	[Mutable]
@@ -96,7 +97,7 @@ namespace NamespaceName {
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 10, 12)
+						new DiagnosticResultLocation("Test0.cs", 11, 12)
 					}
 			};
 
@@ -106,7 +107,7 @@ namespace NamespaceName {
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 11, 3)
+						new DiagnosticResultLocation("Test0.cs", 12, 3)
 					}
 			};
 
@@ -116,7 +117,7 @@ namespace NamespaceName {
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 12, 17)
+						new DiagnosticResultLocation("Test0.cs", 13, 17)
 					}
 			};
 
