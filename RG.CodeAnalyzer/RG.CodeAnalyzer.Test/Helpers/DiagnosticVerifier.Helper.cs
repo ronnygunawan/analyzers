@@ -2,6 +2,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
+using ProtoDummies;
+using RG.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -21,6 +23,8 @@ namespace TestHelper {
 		private static readonly MetadataReference IMMUTABLE_REFERENCE = MetadataReference.CreateFromFile(typeof(ImmutableArray).Assembly.Location);
 		private static readonly MetadataReference SERIALIZATION_REFERENCE = MetadataReference.CreateFromFile(typeof(Uri).Assembly.Location);
 		private static readonly MetadataReference ANNOTATIONS_REFERENCE = MetadataReference.CreateFromFile(typeof(RequiredAttribute).Assembly.Location);
+		private static readonly MetadataReference RG_ANNOTATIONS_REFERENCE = MetadataReference.CreateFromFile(typeof(MutableAttribute).Assembly.Location);
+		private static readonly MetadataReference PROTO_DUMMIES_REFERENCE = MetadataReference.CreateFromFile(typeof(SimpleMessage).Assembly.Location);
 
 		internal static string DefaultFilePathPrefix = "Test";
 		internal static string CSharpDefaultFileExt = "cs";
@@ -141,7 +145,9 @@ namespace TestHelper {
 				.AddMetadataReference(projectId, CODE_ANALYSIS_REFERENCE)
 				.AddMetadataReference(projectId, IMMUTABLE_REFERENCE)
 				.AddMetadataReference(projectId, SERIALIZATION_REFERENCE)
-				.AddMetadataReference(projectId, ANNOTATIONS_REFERENCE);
+				.AddMetadataReference(projectId, ANNOTATIONS_REFERENCE)
+				.AddMetadataReference(projectId, RG_ANNOTATIONS_REFERENCE)
+				.AddMetadataReference(projectId, PROTO_DUMMIES_REFERENCE);
 
 			int count = 0;
 			foreach (string source in sources) {

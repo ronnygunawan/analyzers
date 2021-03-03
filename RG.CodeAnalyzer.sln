@@ -14,6 +14,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RG.Annotations", "RG.Annotations\RG.Annotations.csproj", "{20F86FAD-1D84-492A-B0E9-15BEA96975C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProtoDummies", "ProtoDummies\ProtoDummies.csproj", "{49B74890-6CF0-4F47-9A42-F4EB473FADDD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,6 +32,14 @@ Global
 		{E8A19E0D-ABD9-4CFA-B932-44B0BBACB6E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E8A19E0D-ABD9-4CFA-B932-44B0BBACB6E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E8A19E0D-ABD9-4CFA-B932-44B0BBACB6E3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20F86FAD-1D84-492A-B0E9-15BEA96975C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20F86FAD-1D84-492A-B0E9-15BEA96975C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20F86FAD-1D84-492A-B0E9-15BEA96975C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20F86FAD-1D84-492A-B0E9-15BEA96975C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49B74890-6CF0-4F47-9A42-F4EB473FADDD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49B74890-6CF0-4F47-9A42-F4EB473FADDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49B74890-6CF0-4F47-9A42-F4EB473FADDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49B74890-6CF0-4F47-9A42-F4EB473FADDD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

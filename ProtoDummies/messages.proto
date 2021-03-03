@@ -1,0 +1,34 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "ProtoDummies";
+
+package messages;
+
+service SimpleService {
+	rpc GetSimpleMessage (SimpleMessage) returns (SimpleMessage);
+}
+
+message SimpleMessage {
+	int32 int_property = 1;
+	string string_property = 2;
+	bool bool_property = 3;
+}
+
+message MessageWithRepeatedProperty {
+	repeated int32 repeated_int_property = 1;
+	int32 int_property = 2;
+	repeated string repeated_string_property = 3;
+	string string_property = 4;
+}
+
+message CompositeMessage {
+	SimpleMessage message_1 = 1;
+	int32 int_property = 2;
+}
+
+message OneOfMessage {
+	oneof message_type {
+		SimpleMessage simple = 1;
+		CompositeMessage composite = 2;
+	}
+}

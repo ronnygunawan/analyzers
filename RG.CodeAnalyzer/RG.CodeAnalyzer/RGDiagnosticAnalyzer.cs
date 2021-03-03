@@ -36,6 +36,10 @@ namespace RG.CodeAnalyzer {
 		public const string PARAMETER_IS_READONLY_ID = "RG0022";
 		public const string REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY_ID = "RG0023";
 		public const string IN_ARGUMENT_SHOULD_BE_READONLY_ID = "RG0024";
+		public const string CASTING_TO_AN_INCOMPATIBLE_ENUM = "RG0025";
+		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM = "RG0026";
+		public const string PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED = "RG0027";
+		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED = "RG0028";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
