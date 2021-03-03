@@ -24,7 +24,7 @@ namespace Namespace {
 ";
 
 			DiagnosticResult expected1 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -34,7 +34,7 @@ namespace Namespace {
 			};
 
 			DiagnosticResult expected2 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -61,7 +61,7 @@ namespace Namespace {
 ";
 
 			DiagnosticResult expected1 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "IntProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -71,7 +71,7 @@ namespace Namespace {
 			};
 
 			DiagnosticResult expected2 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -81,7 +81,7 @@ namespace Namespace {
 			};
 
 			DiagnosticResult expected3 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -128,7 +128,7 @@ namespace Namespace {
 ";
 
 			DiagnosticResult expected1 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedIntProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -138,7 +138,7 @@ namespace Namespace {
 			};
 
 			DiagnosticResult expected2 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedStringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -187,7 +187,7 @@ namespace Namespace {
 ";
 
 			DiagnosticResult expected1 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedIntProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -197,7 +197,7 @@ namespace Namespace {
 			};
 
 			DiagnosticResult expected2 = new() {
-				Id = "RG0027",
+				Id = "RG0028",
 				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedStringProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
@@ -261,7 +261,7 @@ namespace Namespace {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0028",
+				Id = "RG0029",
 				Message = string.Format("'{0}' cannot be initialized because '{1}' is also being initialized", "Composite", "Simple"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
