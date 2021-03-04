@@ -30,3 +30,5 @@ RG0024 | Reliability | Warning | RGDiagnosticAnalyzer
 RG0025 | Reliability | Warning | RGDiagnosticAnalyzer
 RG0026 | Reliability | Info | RGDiagnosticAnalyzer
 RG0027 | Reliability | Info | RGDiagnosticAnalyzer
+RG0028 | Usage | Warning | RGDiagnosticAnalyzer
+RG0029 | Usage | Error | RGDiagnosticAnalyzer

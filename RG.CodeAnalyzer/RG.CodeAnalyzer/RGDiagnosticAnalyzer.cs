@@ -276,6 +276,24 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Avoid casting to an enum which has different enum names for the same value.");
 
+		private static readonly DiagnosticDescriptor PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED = new(
+			id: PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED_ID,
+			title: "Required protobuf property should be initialized",
+			messageFormat: "'{0}' is a required protobuf property and should be initialized",
+			category: "Usage",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "All properties in protobuf message need to be initialized.");
+
+		private static readonly DiagnosticDescriptor PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED = new(
+			id: PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID,
+			title: "Can only initialize one of properties in a OneOf case",
+			messageFormat: "'{0}' cannot be initialized because '{1}' has been initialized",
+			category: "Usage",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Only one of properties in a OneOf case can be initialized.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -302,7 +320,9 @@ namespace RG.CodeAnalyzer {
 			IN_ARGUMENT_SHOULD_BE_READONLY,
 			CASTING_TO_AN_INCOMPATIBLE_ENUM,
 			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED,
-			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME
+			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME,
+			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
+			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -368,8 +388,12 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeRecordDeclarations, SyntaxKind.RecordDeclaration);
 
 			// REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
-			// REQUIRED_RECORD_FIELD_SHOULD_BE_INITIALIZED
 			context.RegisterSyntaxNodeAction(AnalyzeObjectInitializers, SyntaxKind.ObjectInitializerExpression);
+
+			// REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
+			// PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED
+			// PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED
+			context.RegisterSyntaxNodeAction(AnalyzeObjectCreationExpressions, SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression);
 
 			// CASTING_TO_AN_INCOMPATIBLE_ENUM
 			// POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED
@@ -959,6 +983,126 @@ namespace RG.CodeAnalyzer {
 			}
 		}
 
+		private static void AnalyzeObjectCreationExpressions(SyntaxNodeAnalysisContext context) {
+			if (context.Node is BaseObjectCreationExpressionSyntax objectCreationExpressionSyntax
+				&& context.SemanticModel.GetTypeInfo(objectCreationExpressionSyntax, context.CancellationToken).Type is INamedTypeSymbol namedTypeSymbol) {
+				if (namedTypeSymbol is { DeclaringSyntaxReferences: { Length: > 0 } declaringSyntaxReferences }
+					&& declaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers } recordDeclarationSyntax
+					&& objectCreationExpressionSyntax.Initializer is null) {
+					foreach (MemberDeclarationSyntax memberDeclaration in recordMembers) {
+						switch (memberDeclaration) {
+							case PropertyDeclarationSyntax propertyDeclarationSyntax: {
+									if (propertyDeclarationSyntax.Identifier.Text is { Length: > 0 } text
+										&& text[0] == '@') {
+										Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, objectCreationExpressionSyntax.GetLocation(), propertyDeclarationSyntax.Identifier.ValueText);
+										context.ReportDiagnostic(diagnostic);
+									} else if (propertyDeclarationSyntax.AttributeLists
+										.SelectMany(attributeList => attributeList.Attributes)
+										.FirstOrDefault(attribute => attribute.Name.ToString() is "Required" or "System.ComponentModel.DataAnnotations.Required")
+										is AttributeSyntax requiredAttribute) {
+										if (context.SemanticModel.GetTypeInfo(requiredAttribute, context.CancellationToken).Type is INamedTypeSymbol requiredAttributeSymbol
+											&& requiredAttributeSymbol.ToString() == "System.ComponentModel.DataAnnotations.RequiredAttribute") {
+											Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, objectCreationExpressionSyntax.GetLocation(), propertyDeclarationSyntax.Identifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
+										}
+									}
+									break;
+								}
+						}
+					}
+				} else if (namedTypeSymbol is { TypeKind: TypeKind.Class }
+					&& namedTypeSymbol.Interfaces.Any(i => i.ToString() == "Google.Protobuf.IMessage")) {
+					if (objectCreationExpressionSyntax.ArgumentList is { Arguments: { Count: 1 } }) return;
+
+					ImmutableArray<IPropertySymbol> propertySymbols = namedTypeSymbol.GetMembers()
+						.OfType<IPropertySymbol>()
+						.Where(member => member.Type.OriginalDefinition.ToString() is not "Google.Protobuf.Reflection.MessageDescriptor" and not "Google.Protobuf.MessageParser<>")
+						.ToImmutableArray();
+					ImmutableArray<INamedTypeSymbol> messageTypeMembers = namedTypeSymbol.GetTypeMembers()
+						.Where(typeMember => typeMember.DeclaredAccessibility == Accessibility.Public && typeMember.Name.EndsWith("OneofCase"))
+						.ToImmutableArray();
+					Dictionary<string, string> oneofGroupNameByPropertyName = new();
+					foreach (INamedTypeSymbol enumTypeSymbol in messageTypeMembers) {
+						foreach (IFieldSymbol fieldSymbol in enumTypeSymbol.GetMembers().OfType<IFieldSymbol>().Where(field => field is { IsConst: true, Name: not "None" })) {
+							oneofGroupNameByPropertyName.Add(fieldSymbol.Name, enumTypeSymbol.Name.Substring(0, enumTypeSymbol.Name.Length - "OneofCase".Length) + "Case");
+						}
+					}
+
+					if (objectCreationExpressionSyntax.Initializer is null) {
+						foreach (IPropertySymbol property in from property in propertySymbols
+															 where property.SetMethod is not null || property.Type.OriginalDefinition.ToString() == "Google.Protobuf.Collections.RepeatedField<>"
+															 select property) {
+							Diagnostic diagnostic = Diagnostic.Create(PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED, objectCreationExpressionSyntax.GetLocation(), property.Name);
+							context.ReportDiagnostic(diagnostic);
+						}
+					} else {
+						Dictionary<string, string> initializedOneofGroupNameByPropertyName = new();
+						foreach (IPropertySymbol property in propertySymbols) {
+							if (property.SetMethod is not null
+								|| property.Type.OriginalDefinition.ToString() == "Google.Protobuf.Collections.RepeatedField<>") {
+								string? oneofGroupName = oneofGroupNameByPropertyName.TryGetValue(property.Name, out string? g) ? g : null;
+								if (objectCreationExpressionSyntax.Initializer.Expressions.FirstOrDefault(expr =>
+									expr is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var assignmentTargetName } } }
+									&& assignmentTargetName == property.Name) is not AssignmentExpressionSyntax assignmentExpressionSyntax) {
+									if (oneofGroupName is null || !initializedOneofGroupNameByPropertyName.ContainsKey(oneofGroupName)) {
+										Diagnostic diagnostic = Diagnostic.Create(PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED, objectCreationExpressionSyntax.Initializer.GetLocation(), property.Name);
+										context.ReportDiagnostic(diagnostic);
+									}
+								} else {
+									if (oneofGroupName is not null) {
+										if (initializedOneofGroupNameByPropertyName.TryGetValue(oneofGroupName, out string? initializedPropertyName)) {
+											Diagnostic diagnostic = Diagnostic.Create(PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED, assignmentExpressionSyntax.GetLocation(), property.Name, initializedPropertyName);
+											context.ReportDiagnostic(diagnostic);
+										} else {
+											initializedOneofGroupNameByPropertyName.Add(oneofGroupName, property.Name);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		private static void AnalyzeCastExpressions(SyntaxNodeAnalysisContext context) {
+			if (context.Node is CastExpressionSyntax { Type: IdentifierNameSyntax { Identifier: { Text: { } typeIdentifier } } typeSyntax, Expression: { } expression } castExpressionSyntax
+				&& context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } enumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } typeDeclaringSyntaxes } } typeInfo
+				&& context.SemanticModel.GetTypeInfo(expression, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } exprEnumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } exprTypeDeclaringSyntaxes } exprTypeSymbol } exprTypeInfo
+				&& typeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var typeMembers }
+				&& exprTypeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var exprTypeMembers }) {
+				ImmutableList<KeyValuePair<string, int>> enumValues = GetEnumValues(typeMembers).ToImmutableList();
+				ImmutableList<KeyValuePair<string, int>> exprTypeEnumValues = GetEnumValues(exprTypeMembers).ToImmutableList();
+				foreach (KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					if (!enumValues.Any(ev => ev.Value == exprTypeEnumValue.Value)) {
+						Diagnostic diagnostic = Diagnostic.Create(CASTING_TO_AN_INCOMPATIBLE_ENUM, castExpressionSyntax.GetLocation(), exprTypeEnumValue.Value, typeIdentifier);
+						context.ReportDiagnostic(diagnostic);
+						return;
+					}
+				}
+				foreach (KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					foreach (KeyValuePair<string, int> enumValue in enumValues) {
+						if (enumValue.Key == exprTypeEnumValue.Key
+							&& enumValue.Value != exprTypeEnumValue.Value) {
+							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED, castExpressionSyntax.GetLocation(), enumValue.Key, typeIdentifier, exprTypeSymbol.Name);
+							context.ReportDiagnostic(diagnostic);
+							return;
+						}
+					}
+				}
+				foreach (KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					foreach (KeyValuePair<string, int> enumValue in enumValues) {
+						if (enumValue.Value == exprTypeEnumValue.Value
+							&& enumValue.Key != exprTypeEnumValue.Key) {
+							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME, castExpressionSyntax.GetLocation(), enumValue.Value, typeIdentifier, exprTypeSymbol.Name);
+							context.ReportDiagnostic(diagnostic);
+							return;
+						}
+					}
+				}
+			}
+		}
+
 		#region Helpers
 		private static bool IsInternalNamespace(INamespaceSymbol @namespace, out string fullNamespace) {
 			fullNamespace = "";
@@ -1109,44 +1253,6 @@ namespace RG.CodeAnalyzer {
 			if (illegalTypeKind is not null) {
 				Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE, typeSyntax.GetLocation(), typeSyntax.ToString(), illegalTypeKind);
 				context.ReportDiagnostic(diagnostic);
-			}
-		}
-
-		private static void AnalyzeCastExpressions(SyntaxNodeAnalysisContext context) {
-			if (context.Node is CastExpressionSyntax { Type: IdentifierNameSyntax { Identifier: { Text: { } typeIdentifier } } typeSyntax, Expression: { } expression } castExpressionSyntax
-				&& context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } enumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } typeDeclaringSyntaxes } } typeInfo
-				&& context.SemanticModel.GetTypeInfo(expression, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } exprEnumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } exprTypeDeclaringSyntaxes } exprTypeSymbol } exprTypeInfo
-				&& typeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var typeMembers }
-				&& exprTypeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var exprTypeMembers }) {
-				ImmutableList<KeyValuePair<string, int>> enumValues = GetEnumValues(typeMembers).ToImmutableList();
-				ImmutableList<KeyValuePair<string, int>> exprTypeEnumValues = GetEnumValues(exprTypeMembers).ToImmutableList();
-				foreach(KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
-					if (!enumValues.Any(ev => ev.Value == exprTypeEnumValue.Value)) {
-						Diagnostic diagnostic = Diagnostic.Create(CASTING_TO_AN_INCOMPATIBLE_ENUM, castExpressionSyntax.GetLocation(), exprTypeEnumValue.Value, typeIdentifier);
-						context.ReportDiagnostic(diagnostic);
-						return;
-					}
-				}
-				foreach(KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
-					foreach (KeyValuePair<string, int> enumValue in enumValues) {
-						if (enumValue.Key == exprTypeEnumValue.Key
-							&& enumValue.Value != exprTypeEnumValue.Value) {
-							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED, castExpressionSyntax.GetLocation(), enumValue.Key, typeIdentifier, exprTypeSymbol.Name);
-							context.ReportDiagnostic(diagnostic);
-							return;
-						}
-					}
-				}
-				foreach (KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
-					foreach (KeyValuePair<string, int> enumValue in enumValues) {
-						if (enumValue.Value == exprTypeEnumValue.Value
-							&& enumValue.Key != exprTypeEnumValue.Key) {
-							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME, castExpressionSyntax.GetLocation(), enumValue.Value, typeIdentifier, exprTypeSymbol.Name);
-							context.ReportDiagnostic(diagnostic);
-							return;
-						}
-					}
-				}
 			}
 		}
 

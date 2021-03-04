@@ -35,7 +35,7 @@ namespace Namespace {
 
 			DiagnosticResult expected2 = new() {
 				Id = "RG0028",
-				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
+				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "BoolProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -82,7 +82,7 @@ namespace Namespace {
 
 			DiagnosticResult expected3 = new() {
 				Id = "RG0028",
-				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "StringProperty"),
+				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "BoolProperty"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -188,25 +188,25 @@ namespace Namespace {
 
 			DiagnosticResult expected1 = new() {
 				Id = "RG0028",
-				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedIntProperty"),
+				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "Simple"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 7, 74)
+						new DiagnosticResultLocation("Test0.cs", 7, 32)
 					}
 			};
 
 			DiagnosticResult expected2 = new() {
 				Id = "RG0028",
-				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "RepeatedStringProperty"),
+				Message = string.Format("'{0}' is a required protobuf property and should be initialized", "Composite"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 7, 74)
+						new DiagnosticResultLocation("Test0.cs", 7, 32)
 					}
 			};
 
-			VerifyCSharpDiagnostic(test);
+			VerifyCSharpDiagnostic(test, expected1, expected2);
 		}
 
 		[TestMethod]
@@ -262,7 +262,7 @@ namespace Namespace {
 
 			DiagnosticResult expected = new() {
 				Id = "RG0029",
-				Message = string.Format("'{0}' cannot be initialized because '{1}' is also being initialized", "Composite", "Simple"),
+				Message = string.Format("'{0}' cannot be initialized because '{1}' has been initialized", "Composite", "Simple"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {

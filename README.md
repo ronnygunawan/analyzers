@@ -1,6 +1,6 @@
 # RG.CodeAnalyzer
 
-[![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/) [![.NET](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml/badge.svg)](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml)
+[![NuGet](https://img.shields.io/nuget/v/RG.CodeAnalyzer.svg)](https://www.nuget.org/packages/RG.CodeAnalyzer/) [![NuGet](https://img.shields.io/nuget/v/RG.Annotations.svg)](https://www.nuget.org/packages/RG.Annotations/) [![.NET](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml/badge.svg)](https://github.com/ronnygunawan/analyzers/actions/workflows/dotnet.yml)
 
 ## Installation
 From Package Manager Console:
@@ -158,6 +158,13 @@ record Foo {
 }
 ```
 
+---
+**MUTABLE RECORDS**
+
+You can annotate records with `[Mutable]` attribute from [RG.Annotations](https://www.nuget.org/packages/RG.Annotations/) to skip all mutability checks.
+
+---
+
 ### 16. Records should not contain mutable field
 ```cs
 record Foo {
@@ -282,4 +289,66 @@ void Foo(int @x) {
 ```cs
 void Foo(out int @x) { // RG0023: 'out' parameter 'x' cannot be readonly
 }
+```
+
+### 24. (Reserved)
+
+### 25. Casting to an incompatible enum
+```cs
+enum X { A, B, C }
+enum Y { A, B, C, D }
+
+X x = (X)Y.A; // RG0025: Casting to an incompatible enum; Value 3 is missing from 'X'
+Y y = (Y)X.A; // no warning
+```
+
+### 26. Possibly casting to an incompatible enum: some names have different value
+```cs
+enum X { A, B, C }
+enum Y { A, C, B }
+
+X x = (X)Y.A; // Info: RG0026: Possibly casting to an incompatible enum; 'B' doesn't have the same value in 'X' and in 'Y'
+```
+
+### 27. Possibly casting to an incompatible enum: some values have different name
+```cs
+enum X { A, BB, C }
+enum Y { A, B, C }
+
+X x = (X)Y.A; // Info: RG0027: Possibly casting to an incompatible enum; Value 1 doesn't have a same name in 'X' and in 'Y'
+```
+
+### 28. All properties in protobuf message need to be initialized
+```protobuf
+// .proto
+message X {
+  int32 foo = 1;
+  string bar = 2;
+}
+```
+
+```cs
+// .cs
+X x = new() { // RG0028: 'Bar' is a required protobuf property and should be initialized
+    Foo = 1
+};
+```
+
+### 29. Only one of properties in a Oneof case can be initialized
+```protobuf
+// .proto
+message X {
+  oneof which {
+    int32 foo = 1;
+    string bar = 2;
+  }
+}
+```
+
+```cs
+// .cs
+X x = new() {
+    Foo = 1,
+    Bar = "Hello" // RG0029: 'Bar' cannot be initialized because 'Foo' has been initialized
+};
 ```
