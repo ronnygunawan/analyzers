@@ -39,7 +39,17 @@ namespace Namespace {
 }
 ";
 
-			VerifyCSharpDiagnostic(test);
+			DiagnosticResult expected = new() {
+				Id = "RG0027",
+				Message = string.Format("Possibly casting to an incompatible enum; Value {0} doesn't have a same name in '{1}' and in '{2}'", "0", "X", "Y"),
+				Severity = DiagnosticSeverity.Info,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 8, 10)
+					}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
 		}
 
 		[TestMethod]
@@ -58,7 +68,7 @@ namespace Namespace {
 ";
 			DiagnosticResult expected = new() {
 				Id = "RG0025",
-				Message = string.Format("Casting to an incompatible enum. Value {0} is missing from '{1}'", "3", "X"),
+				Message = string.Format("Casting to an incompatible enum; Value {0} is missing from '{1}'", "3", "X"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -103,7 +113,7 @@ namespace Namespace {
 ";
 			DiagnosticResult expected = new() {
 				Id = "RG0025",
-				Message = string.Format("Casting to an incompatible enum. Value {0} is missing from '{1}'", "2", "X"),
+				Message = string.Format("Casting to an incompatible enum; Value {0} is missing from '{1}'", "2", "X"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations =
 					new[] {
@@ -130,8 +140,8 @@ namespace Namespace {
 ";
 			DiagnosticResult expected = new() {
 				Id = "RG0026",
-				Message = string.Format("Possibly casting to an incompatible enum. '{0}' doesn't have the same value in '{1}' and in '{2}'", "C", "X", "Y"),
-				Severity = DiagnosticSeverity.Warning,
+				Message = string.Format("Possibly casting to an incompatible enum; '{0}' doesn't have the same value in '{1}' and in '{2}'", "C", "X", "Y"),
+				Severity = DiagnosticSeverity.Info,
 				Locations =
 					new[] {
 						new DiagnosticResultLocation("Test0.cs", 8, 10)
@@ -157,8 +167,8 @@ namespace Namespace {
 ";
 			DiagnosticResult expected = new() {
 				Id = "RG0027",
-				Message = string.Format("Possibly casting to an incompatible enum. Value {0} doesn't have the same name in '{1}' and in '{2}'", "1", "X", "Y"),
-				Severity = DiagnosticSeverity.Warning,
+				Message = string.Format("Possibly casting to an incompatible enum; Value {0} doesn't have a same name in '{1}' and in '{2}'", "1", "X", "Y"),
+				Severity = DiagnosticSeverity.Info,
 				Locations =
 					new[] {
 						new DiagnosticResultLocation("Test0.cs", 8, 10)

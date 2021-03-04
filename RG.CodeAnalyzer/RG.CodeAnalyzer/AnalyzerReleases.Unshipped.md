@@ -27,3 +27,6 @@ RG0021 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0022 | Code Quality | Warning | RGDiagnosticAnalyzer
 RG0023 | Usage | Warning | RGDiagnosticAnalyzer
 RG0024 | Reliability | Warning | RGDiagnosticAnalyzer
+RG0025 | Reliability | Warning | RGDiagnosticAnalyzer
+RG0026 | Reliability | Info | RGDiagnosticAnalyzer
+RG0027 | Reliability | Info | RGDiagnosticAnalyzer

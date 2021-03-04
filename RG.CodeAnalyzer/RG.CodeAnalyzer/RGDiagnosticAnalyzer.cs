@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -7,7 +8,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Operations;
 
 namespace RG.CodeAnalyzer {
 	[DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -36,11 +36,11 @@ namespace RG.CodeAnalyzer {
 		public const string PARAMETER_IS_READONLY_ID = "RG0022";
 		public const string REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY_ID = "RG0023";
 		public const string IN_ARGUMENT_SHOULD_BE_READONLY_ID = "RG0024";
-		public const string CASTING_TO_AN_INCOMPATIBLE_ENUM = "RG0025";
-		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED = "RG0026";
-		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME = "RG0027";
-		public const string PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED = "RG0028";
-		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED = "RG0029";
+		public const string CASTING_TO_AN_INCOMPATIBLE_ENUM_ID = "RG0025";
+		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED_ID = "RG0026";
+		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME_ID = "RG0027";
+		public const string PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED_ID = "RG0028";
+		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -249,6 +249,33 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "In argument should be readonly.");
 
+		private static readonly DiagnosticDescriptor CASTING_TO_AN_INCOMPATIBLE_ENUM = new(
+			id: CASTING_TO_AN_INCOMPATIBLE_ENUM_ID,
+			title: "Casting to an incompatible enum",
+			messageFormat: "Casting to an incompatible enum; Value {0} is missing from '{1}'",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Avoid casting to an incompatible enum.");
+
+		private static readonly DiagnosticDescriptor POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED = new(
+			id: POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED_ID,
+			title: "Possibly casting to an incompatible enum, some names have different value",
+			messageFormat: "Possibly casting to an incompatible enum; '{0}' doesn't have the same value in '{1}' and in '{2}'",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Info,
+			isEnabledByDefault: true,
+			description: "Avoid casting to an enum which has different enum values for the same names.");
+
+		private static readonly DiagnosticDescriptor POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME = new(
+			id: POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME_ID,
+			title: "Possibly casting to an incompatible enum, some values have different name",
+			messageFormat: "Possibly casting to an incompatible enum; Value {0} doesn't have a same name in '{1}' and in '{2}'",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Info,
+			isEnabledByDefault: true,
+			description: "Avoid casting to an enum which has different enum names for the same value.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -272,7 +299,10 @@ namespace RG.CodeAnalyzer {
 			LOCAL_IS_READONLY,
 			PARAMETER_IS_READONLY,
 			REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY,
-			IN_ARGUMENT_SHOULD_BE_READONLY
+			IN_ARGUMENT_SHOULD_BE_READONLY,
+			CASTING_TO_AN_INCOMPATIBLE_ENUM,
+			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED,
+			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -340,6 +370,11 @@ namespace RG.CodeAnalyzer {
 			// REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED
 			// REQUIRED_RECORD_FIELD_SHOULD_BE_INITIALIZED
 			context.RegisterSyntaxNodeAction(AnalyzeObjectInitializers, SyntaxKind.ObjectInitializerExpression);
+
+			// CASTING_TO_AN_INCOMPATIBLE_ENUM
+			// POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED
+			// POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME
+			context.RegisterSyntaxNodeAction(AnalyzeCastExpressions, SyntaxKind.CastExpression);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1074,6 +1109,65 @@ namespace RG.CodeAnalyzer {
 			if (illegalTypeKind is not null) {
 				Diagnostic diagnostic = Diagnostic.Create(RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE, typeSyntax.GetLocation(), typeSyntax.ToString(), illegalTypeKind);
 				context.ReportDiagnostic(diagnostic);
+			}
+		}
+
+		private static void AnalyzeCastExpressions(SyntaxNodeAnalysisContext context) {
+			if (context.Node is CastExpressionSyntax { Type: IdentifierNameSyntax { Identifier: { Text: { } typeIdentifier } } typeSyntax, Expression: { } expression } castExpressionSyntax
+				&& context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } enumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } typeDeclaringSyntaxes } } typeInfo
+				&& context.SemanticModel.GetTypeInfo(expression, context.CancellationToken) is { Type: INamedTypeSymbol { EnumUnderlyingType: { } exprEnumUnderlyingType, DeclaringSyntaxReferences: { Length: 1 } exprTypeDeclaringSyntaxes } exprTypeSymbol } exprTypeInfo
+				&& typeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var typeMembers }
+				&& exprTypeDeclaringSyntaxes[0].GetSyntax(context.CancellationToken) is EnumDeclarationSyntax { Members: var exprTypeMembers }) {
+				ImmutableList<KeyValuePair<string, int>> enumValues = GetEnumValues(typeMembers).ToImmutableList();
+				ImmutableList<KeyValuePair<string, int>> exprTypeEnumValues = GetEnumValues(exprTypeMembers).ToImmutableList();
+				foreach(KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					if (!enumValues.Any(ev => ev.Value == exprTypeEnumValue.Value)) {
+						Diagnostic diagnostic = Diagnostic.Create(CASTING_TO_AN_INCOMPATIBLE_ENUM, castExpressionSyntax.GetLocation(), exprTypeEnumValue.Value, typeIdentifier);
+						context.ReportDiagnostic(diagnostic);
+						return;
+					}
+				}
+				foreach(KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					foreach (KeyValuePair<string, int> enumValue in enumValues) {
+						if (enumValue.Key == exprTypeEnumValue.Key
+							&& enumValue.Value != exprTypeEnumValue.Value) {
+							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED, castExpressionSyntax.GetLocation(), enumValue.Key, typeIdentifier, exprTypeSymbol.Name);
+							context.ReportDiagnostic(diagnostic);
+							return;
+						}
+					}
+				}
+				foreach (KeyValuePair<string, int> exprTypeEnumValue in exprTypeEnumValues) {
+					foreach (KeyValuePair<string, int> enumValue in enumValues) {
+						if (enumValue.Value == exprTypeEnumValue.Value
+							&& enumValue.Key != exprTypeEnumValue.Key) {
+							Diagnostic diagnostic = Diagnostic.Create(POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME, castExpressionSyntax.GetLocation(), enumValue.Value, typeIdentifier, exprTypeSymbol.Name);
+							context.ReportDiagnostic(diagnostic);
+							return;
+						}
+					}
+				}
+			}
+		}
+
+		private static IEnumerable<KeyValuePair<string, int>> GetEnumValues(IEnumerable<EnumMemberDeclarationSyntax> memberDeclarations) {
+			int currentValue = 0;
+			foreach (EnumMemberDeclarationSyntax memberDeclaration in memberDeclarations) {
+				switch (memberDeclaration.EqualsValue?.Value) {
+					case PrefixUnaryExpressionSyntax { OperatorToken: { } operatorToken, Operand: LiteralExpressionSyntax { Token: { } operandToken } }
+					when operatorToken.Kind() == SyntaxKind.MinusToken && operandToken.Kind() == SyntaxKind.NumericLiteralToken && operandToken.Value is int value:
+						currentValue = -value;
+						yield return new KeyValuePair<string, int>(memberDeclaration.Identifier.Text, currentValue++);
+						break;
+					case LiteralExpressionSyntax { Token: { } literalToken }
+					when literalToken.Kind() == SyntaxKind.NumericLiteralToken && literalToken.Value is int value:
+						currentValue = value;
+						yield return new KeyValuePair<string, int>(memberDeclaration.Identifier.Text, currentValue++);
+						break;
+					default:
+						yield return new KeyValuePair<string, int>(memberDeclaration.Identifier.Text, currentValue++);
+						break;
+				}
 			}
 		}
 
