@@ -41,6 +41,7 @@ namespace RG.CodeAnalyzer {
 		public const string POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME_ID = "RG0027";
 		public const string PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED_ID = "RG0028";
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
+		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -294,6 +295,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Only one of properties in a OneOf case can be initialized.");
 
+		private static readonly DiagnosticDescriptor ARGUMENT_MUST_BE_LOCKED = new(
+			id: ARGUMENT_MUST_BE_LOCKED_ID,
+			title: "Argument must be locked",
+			messageFormat: "Argument must be locked before calling this method",
+			category: "Convention",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Argument must be locked before calling method annotated with [MustBeLocked] attribute.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -322,7 +332,8 @@ namespace RG.CodeAnalyzer {
 			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED,
 			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME,
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
-			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED
+			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
+			ARGUMENT_MUST_BE_LOCKED
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -367,6 +378,7 @@ namespace RG.CodeAnalyzer {
 
 			// NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN
 			// DO_NOT_PARSE_USING_CONVERT
+			// ARGUMENT_MUST_BE_LOCKED
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
 
 			// VAR_INFERRED_TYPE_IS_OBSOLETE
@@ -760,30 +772,35 @@ namespace RG.CodeAnalyzer {
 						}
 					} else if (context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
 						MethodDeclarationSyntax? methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-						if (methodDeclaration is { ParameterList: { Parameters: { } callerParameters } }
-							&& callerParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {
-							if (methodParameters.Length == invocationArguments.Count) {
-								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression, context.CancellationToken).OfType<IMethodSymbol>()) {
-									if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
-										&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)
-										&& overloadSymbol.Parameters.LastOrDefault()?.Type.ToString() is string type
-										&& (type is "CancellationToken" or "System.Threading.CancellationToken")) {
-										bool signatureMatches = true;
-										for (int i = 0; i < methodParameters.Length; i++) {
-											if (!SymbolEqualityComparer.Default.Equals(overloadSymbol.Parameters[i].Type, methodParameters[i].Type)) {
-												signatureMatches = false;
+						if (methodDeclaration is { ParameterList: { Parameters: { } declaredParameters } }) {
+							if (declaredParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {
+								if (methodParameters.Length == invocationArguments.Count) {
+									foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression, context.CancellationToken).OfType<IMethodSymbol>()) {
+										if (overloadSymbol.Parameters.Length == methodParameters.Length + 1
+											&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)
+											&& overloadSymbol.Parameters.LastOrDefault()?.Type.ToString() is string type
+											&& (type is "CancellationToken" or "System.Threading.CancellationToken")) {
+											bool signatureMatches = true;
+											for (int i = 0; i < methodParameters.Length; i++) {
+												if (!SymbolEqualityComparer.Default.Equals(overloadSymbol.Parameters[i].Type, methodParameters[i].Type)) {
+													signatureMatches = false;
+												}
+											}
+											if (signatureMatches) {
+												Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
+												context.ReportDiagnostic(diagnostic);
 											}
 										}
-										if (signatureMatches) {
-											Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
-											context.ReportDiagnostic(diagnostic);
-										}
 									}
+								} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
+									&& methodParameters.Last().Type.ToString() is "CancellationToken" or "System.Threading.CancellationToken") {
+									Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
+									context.ReportDiagnostic(diagnostic);
 								}
-							} else if (methodParameters.Length == invocationExpressionSyntax.ArgumentList.Arguments.Count + 1
-								&& methodParameters.Last().Type.ToString() is "CancellationToken" or "System.Threading.CancellationToken") {
-								Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
-								context.ReportDiagnostic(diagnostic);
+							}
+							ImmutableList<ParameterSyntax> mustBeLockedParameters = declaredParameters.Where(declaredParameter => declaredParameter.AttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "MustBeLocked" or "RG.Annotations.MustBeLocked"))).ToImmutableList();
+							if (mustBeLockedParameters.Count > 0) {
+								// TODO: Implement RG0030
 							}
 						}
 					}
