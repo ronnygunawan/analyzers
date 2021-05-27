@@ -354,3 +354,8 @@ X x = new() {
     Bar = "Hello" // RG0029: 'Bar' cannot be initialized because 'Foo' has been initialized
 };
 ```
+
+### 31. Do not use `dynamic` type
+```cs
+dynamic x = 1; // RG0031: Do not use dynamic type
+```
