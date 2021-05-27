@@ -42,6 +42,7 @@ namespace RG.CodeAnalyzer {
 		public const string PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED_ID = "RG0028";
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
+		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -304,6 +305,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Argument must be locked before calling method annotated with [MustBeLocked] attribute.");
 
+		private static readonly DiagnosticDescriptor DO_NOT_USE_DYNAMIC_TYPE = new(
+			id: DO_NOT_USE_DYNAMIC_TYPE_ID,
+			title: "Do not use dynamic type",
+			messageFormat: "Do not use dynamic type",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Do not use dynamic type.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -333,7 +343,8 @@ namespace RG.CodeAnalyzer {
 			POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME,
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
-			ARGUMENT_MUST_BE_LOCKED
+			ARGUMENT_MUST_BE_LOCKED,
+			DO_NOT_USE_DYNAMIC_TYPE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -411,6 +422,9 @@ namespace RG.CodeAnalyzer {
 			// POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_MEMBER_SWAPPED
 			// POSSIBLY_CASTING_TO_AN_INCOMPATIBLE_ENUM_DIFFERENT_MEMBER_NAME
 			context.RegisterSyntaxNodeAction(AnalyzeCastExpressions, SyntaxKind.CastExpression);
+
+			// DO_NOT_USE_DYNAMIC_TYPE
+			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1117,6 +1131,15 @@ namespace RG.CodeAnalyzer {
 						}
 					}
 				}
+			}
+		}
+
+		private static void AnalyzeIdentifierNames(SyntaxNodeAnalysisContext context) {
+			if (context.Node is IdentifierNameSyntax {
+				Identifier: { Text: "dynamic" } identifier
+			}) {
+				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
+				context.ReportDiagnostic(diagnostic);
 			}
 		}
 
