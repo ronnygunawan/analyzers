@@ -350,7 +350,7 @@ namespace RG.CodeAnalyzer {
 		public override void Initialize(AnalysisContext context) {
 			if (context is null) return;
 
-			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
+			context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
 			context.EnableConcurrentExecution();
 
 			// NO_AWAIT_INSIDE_LOOP
