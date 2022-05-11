@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
     <PackageId>RG.Annotations</PackageId>
-    <PackageVersion>1.0.27.0</PackageVersion>
+    <PackageVersion>1.0.30.0</PackageVersion>
     <Authors>Ronny Gunawan</Authors>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/ronnygunawan/analyzers</PackageProjectUrl>
@@ -18,10 +18,10 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Description>RG.Annotations</Description>
     <PackageReleaseNotes></PackageReleaseNotes>
-    <Copyright>(C) 2019-2021 Ronny Gunawan</Copyright>
+    <Copyright>(C) 2019-2022 Ronny Gunawan</Copyright>
     <PackageTags>analyzers</PackageTags>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.0.27</Version>
+    <Version>1.0.30</Version>
   </PropertyGroup>
 </Project>

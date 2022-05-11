@@ -507,7 +507,7 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeUsingDeclarationStatement(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is LocalDeclarationStatementSyntax { UsingKeyword: { } usingKeyword } localDeclarationStatementSyntax
-					&& usingKeyword.Kind() == SyntaxKind.UsingKeyword) {
+					&& usingKeyword.IsKind(SyntaxKind.UsingKeyword)) {
 					SyntaxNode methodNode = localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => {
 						return ancestor.Kind()
 							is SyntaxKind.MethodDeclaration
@@ -1301,12 +1301,12 @@ namespace RG.CodeAnalyzer {
 			foreach (EnumMemberDeclarationSyntax memberDeclaration in memberDeclarations) {
 				switch (memberDeclaration.EqualsValue?.Value) {
 					case PrefixUnaryExpressionSyntax { OperatorToken: { } operatorToken, Operand: LiteralExpressionSyntax { Token: { } operandToken } }
-					when operatorToken.Kind() == SyntaxKind.MinusToken && operandToken.Kind() == SyntaxKind.NumericLiteralToken && operandToken.Value is int value:
+					when operatorToken.IsKind(SyntaxKind.MinusToken) && operandToken.IsKind(SyntaxKind.NumericLiteralToken) && operandToken.Value is int value:
 						currentValue = -value;
 						yield return new KeyValuePair<string, int>(memberDeclaration.Identifier.Text, currentValue++);
 						break;
 					case LiteralExpressionSyntax { Token: { } literalToken }
-					when literalToken.Kind() == SyntaxKind.NumericLiteralToken && literalToken.Value is int value:
+					when literalToken.IsKind(SyntaxKind.NumericLiteralToken) && literalToken.Value is int value:
 						currentValue = value;
 						yield return new KeyValuePair<string, int>(memberDeclaration.Identifier.Text, currentValue++);
 						break;
