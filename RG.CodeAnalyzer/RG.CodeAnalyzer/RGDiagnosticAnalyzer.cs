@@ -680,16 +680,16 @@ namespace RG.CodeAnalyzer {
 						}
 					case RefExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: var identifier } } refExpressionSyntax
 					when declaredIdentifier.ValueText == identifier.ValueText: {
-							// This is using a readonly local/parameter in a ref expression (e.g., return ref, or ref argument)
-							// Check if it's inside a return statement, ref reassignment, or declaration
+							// This is using a readonly local/parameter in a ref expression (e.g., return ref, or declaration)
+							// Note: Ref reassignments (ref x = ref y) are NOT validated here - they're always allowed
 							if (refExpressionSyntax.Parent is ReturnStatementSyntax) {
 								// return ref readonlyLocal - not allowed
 								Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
 								context.ReportDiagnostic(diagnostic);
-							} else if (refExpressionSyntax.Parent is EqualsValueClauseSyntax equalsValue) {
-								// This could be a declaration
-								if (equalsValue.Parent is VariableDeclaratorSyntax variableDeclarator
-									&& variableDeclarator.Identifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+							} else if (refExpressionSyntax.Parent is EqualsValueClauseSyntax equalsValue
+								&& equalsValue.Parent is VariableDeclaratorSyntax variableDeclarator) {
+								// This is a declaration: ref int x = ref readonlySource;
+								if (variableDeclarator.Identifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 									// ref int @readonly = ref readonlySource; - allowed
 									break;
 								} else {
@@ -697,16 +697,8 @@ namespace RG.CodeAnalyzer {
 									Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
 									context.ReportDiagnostic(diagnostic);
 								}
-							} else if (refExpressionSyntax.Parent is AssignmentExpressionSyntax assignmentExpressionSyntax
-								&& assignmentExpressionSyntax.Left is RefExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: var leftIdentifier } }) {
-								// ref mutable = ref readonlySource; - check if left is readonly
-								if (!IsIdentifierDeclaredReadonly(leftIdentifier.ValueText, scopeNode)) {
-									// Target is mutable, source is readonly - not allowed
-									Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
-									context.ReportDiagnostic(diagnostic);
-								}
-								// ref readonly = ref readonlySource; - allowed
 							}
+							// Ref reassignments (ref x = ref y where x is a ref variable) are not validated
 							break;
 						}
 				}
