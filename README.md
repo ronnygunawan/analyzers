@@ -359,3 +359,12 @@ X x = new() {
 ```cs
 dynamic x = 1; // RG0031: Do not use dynamic type
 ```
+
+### 32. Static classes containing extension methods should have an 'Extensions' suffix
+```cs
+static class Utilities { // RG0032: 'Utilities' contains extension methods and should have an 'Extensions' suffix
+    public static void Foo(this string bar) {
+    }
+}
+```
+Code fix: Rename to `UtilitiesExtensions`
