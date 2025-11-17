@@ -124,6 +124,20 @@ namespace RG.CodeAnalyzer {
 			if (objectCreation.Initializer is { Expressions: { Count: > 0 } existingExpressions }) {
 				itemLeadingTrivia = existingExpressions[0].GetLeadingTrivia();
 				closeBraceLeadingTrivia = objectCreation.Initializer.CloseBraceToken.LeadingTrivia;
+			} else if (objectCreation.Initializer is not null) {
+				SyntaxToken statementLeadingToken = objectCreation.GetFirstToken();
+				SyntaxTriviaList statementIndent = statementLeadingToken.LeadingTrivia;
+				
+				string indentString = string.Concat(statementIndent.Where(t => t.IsKind(SyntaxKind.WhitespaceTrivia)).Select(t => t.ToString()));
+				int tabCount = indentString.Count(c => c == '\t');
+				int spaceCount = indentString.Count(c => c == ' ');
+				int totalIndent = tabCount + (spaceCount / 4);
+				
+				string tabs = new string('\t', totalIndent + 1);
+				itemLeadingTrivia = TriviaList(Whitespace(tabs));
+				
+				string closeTabs = new string('\t', totalIndent);
+				closeBraceLeadingTrivia = TriviaList(Whitespace(closeTabs));
 			} else {
 				SyntaxToken statementLeadingToken = objectCreation.GetFirstToken();
 				SyntaxTriviaList statementIndent = statementLeadingToken.LeadingTrivia;

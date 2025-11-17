@@ -44,7 +44,6 @@ namespace ConsoleApplication1 {
 	public static class Program {
 		public static void Main() {
 			var person = new Person {
-
                 Id = _,
                 FirstName = _,
                 LastName = _
@@ -93,7 +92,6 @@ namespace ConsoleApplication1 {
 	public static class Program {
 		public static void Main() {
 			var person = new Person {
-
                 LastName = _
             };
 		}
@@ -132,7 +130,6 @@ namespace ConsoleApplication1 {
 	public static class Program {
 		public static void Main() {
 			var person = new Person {
-
                 Id = _,
                 FirstName = _,
                 LastName = _
@@ -279,7 +276,6 @@ namespace ConsoleApplication1 {
 	public static class Program {
 		public static void Main() {
 			Person person = new() {
-
                 LastName = _
             };
 		}
