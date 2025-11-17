@@ -51,7 +51,7 @@ namespace RG.CodeAnalyzer {
 			title: "Do not await inside a loop",
 			messageFormat: "Asynchronous operation awaited inside {0}",
 			category: "Performance",
-			defaultSeverity: DiagnosticSeverity.Warning,
+			defaultSeverity: DiagnosticSeverity.Info,
 			isEnabledByDefault: true,
 			description: "Do not await inside a loop. Perform asynchronous operations in a batch instead.");
 
