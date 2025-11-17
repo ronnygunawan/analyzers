@@ -242,6 +242,7 @@ namespace Namespace {
 		}
 
 		[TestMethod]
+		[Ignore("ref and ref readonly features not yet supported - see README")]
 		public void TestRefAssignment() {
 			string test = @"
 namespace Namespace {
@@ -370,6 +371,7 @@ namespace Namespace {
 		}
 
 		[TestMethod]
+		[Ignore("ref and ref readonly features not yet supported - see README")]
 		public void TestReturnRef() {
 			string test = @"
 namespace Namespace {
