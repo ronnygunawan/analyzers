@@ -50,7 +50,13 @@ namespace RG.CodeAnalyzer {
 			string newName = oldName + "Extensions";
 
 			Solution solution = document.Project.Solution;
-			return await Renamer.RenameSymbolAsync(solution, classSymbol, newName, solution.Workspace.Options, cancellationToken).ConfigureAwait(false);
+			var renameOptions = new SymbolRenameOptions(
+				RenameOverloads: false,
+				RenameInStrings: false,
+				RenameInComments: false,
+				RenameFile: false
+			);
+			return await Renamer.RenameSymbolAsync(solution, classSymbol, renameOptions, newName, cancellationToken).ConfigureAwait(false);
 		}
 	}
 }

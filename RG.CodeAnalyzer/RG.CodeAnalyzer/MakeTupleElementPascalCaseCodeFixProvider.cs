@@ -61,7 +61,13 @@ namespace RG.CodeAnalyzer {
 				if (fieldSymbol is null) return document.Project.Solution;
 
 				Solution solution = document.Project.Solution;
-				return await Renamer.RenameSymbolAsync(solution, fieldSymbol, pascalCase, solution.Workspace.Options, cancellationToken).ConfigureAwait(false);
+				var renameOptions = new SymbolRenameOptions(
+					RenameOverloads: false,
+					RenameInStrings: false,
+					RenameInComments: false,
+					RenameFile: false
+				);
+				return await Renamer.RenameSymbolAsync(solution, fieldSymbol, renameOptions, pascalCase, cancellationToken).ConfigureAwait(false);
 			} else {
 				return document.Project.Solution;
 			}
