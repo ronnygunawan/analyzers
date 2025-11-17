@@ -45,6 +45,7 @@ namespace RG.CodeAnalyzer {
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
 		public const string STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID = "RG0032";
 		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID = "RG0033";
+		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0034";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -334,6 +335,16 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Use overload without CancellationToken if default or CancellationToken.None was supplied.");
 
+		private static readonly DiagnosticDescriptor USAGE_RESTRICTED_TO_NAMESPACE = new(
+			id: USAGE_RESTRICTED_TO_NAMESPACE_ID,
+			title: "Usage is restricted to a specific namespace",
+			messageFormat: "Usage of '{0}' is only allowed in namespace '{1}'",
+			category: "Usage",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Usage of symbol is restricted to a specific namespace.");
+
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -366,7 +377,8 @@ namespace RG.CodeAnalyzer {
 			ARGUMENT_MUST_BE_LOCKED,
 			DO_NOT_USE_DYNAMIC_TYPE,
 			STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX,
-			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT
+			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT,
+			USAGE_RESTRICTED_TO_NAMESPACE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -447,7 +459,11 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeCastExpressions, SyntaxKind.CastExpression);
 
 			// DO_NOT_USE_DYNAMIC_TYPE
+			// USAGE_RESTRICTED_TO_NAMESPACE
 			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
+
+			// USAGE_RESTRICTED_TO_NAMESPACE
+			context.RegisterSyntaxNodeAction(AnalyzeTypeDeclarations, SyntaxKind.ClassDeclaration, SyntaxKind.StructDeclaration, SyntaxKind.RecordDeclaration, SyntaxKind.InterfaceDeclaration);
 
 			// STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
 			context.RegisterSyntaxNodeAction(AnalyzeClassDeclarations, SyntaxKind.ClassDeclaration);
@@ -1335,11 +1351,45 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeIdentifierNames(SyntaxNodeAnalysisContext context) {
-			if (context.Node is IdentifierNameSyntax {
-				Identifier: { Text: "dynamic" } identifier
-			}) {
-				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
-				context.ReportDiagnostic(diagnostic);
+			try {
+				if (context.Node is IdentifierNameSyntax {
+					Identifier: { Text: "dynamic" } identifier
+				}) {
+					Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
+					context.ReportDiagnostic(diagnostic);
+					return;
+				}
+
+				if (context.Node is IdentifierNameSyntax identifierName) {
+					ISymbol? symbol = context.SemanticModel.GetSymbolInfo(identifierName, context.CancellationToken).Symbol;
+					if (symbol is not null) {
+						CheckRestrictedUsage(context, identifierName.GetLocation(), symbol);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeTypeDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				BaseListSyntax? baseList = context.Node switch {
+					ClassDeclarationSyntax classDecl => classDecl.BaseList,
+					StructDeclarationSyntax structDecl => structDecl.BaseList,
+					RecordDeclarationSyntax recordDecl => recordDecl.BaseList,
+					InterfaceDeclarationSyntax interfaceDecl => interfaceDecl.BaseList,
+					_ => null
+				};
+
+				if (baseList is not null) {
+					foreach (var baseType in baseList.Types) {
+						if (context.SemanticModel.GetSymbolInfo(baseType.Type, context.CancellationToken).Symbol is ITypeSymbol typeSymbol) {
+							CheckRestrictedUsage(context, baseType.Type.GetLocation(), typeSymbol);
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
@@ -1561,6 +1611,64 @@ namespace RG.CodeAnalyzer {
 		internal static string ToPascalCase(string camelCaseIdentifierName) {
 			if (!IsInCamelCase(camelCaseIdentifierName)) throw new ArgumentException("Identifier name is not in camel case.", nameof(camelCaseIdentifierName));
 			return $"{char.ToUpper(camelCaseIdentifierName[0], CultureInfo.InvariantCulture)}{camelCaseIdentifierName.Substring(1)}";
+		}
+
+		private static void CheckRestrictedUsage(SyntaxNodeAnalysisContext context, Location location, ISymbol symbol) {
+			// Check the symbol itself first (could be a type, property, field, method, etc.)
+			CheckSymbolRestriction(context, location, symbol);
+			
+			// If it's a member, also check the containing type's restriction
+			if (symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType is not null) {
+				CheckSymbolRestriction(context, location, methodSymbol.ContainingType);
+			} else if (symbol is IPropertySymbol propertySymbol && propertySymbol.ContainingType is not null) {
+				CheckSymbolRestriction(context, location, propertySymbol.ContainingType);
+			} else if (symbol is IFieldSymbol fieldSymbol && fieldSymbol.ContainingType is not null) {
+				CheckSymbolRestriction(context, location, fieldSymbol.ContainingType);
+			} else if (symbol is IEventSymbol eventSymbol && eventSymbol.ContainingType is not null) {
+				CheckSymbolRestriction(context, location, eventSymbol.ContainingType);
+			}
+		}
+
+		private static void CheckSymbolRestriction(SyntaxNodeAnalysisContext context, Location location, ISymbol targetSymbol) {
+			foreach (AttributeData attribute in targetSymbol.GetAttributes()) {
+				if (attribute.AttributeClass is { Name: "RestrictToAttribute" }) {
+					string? restrictedNamespace = null;
+					foreach (var namedArg in attribute.NamedArguments) {
+						if (namedArg.Key == "Namespace" && namedArg.Value.Value is string ns) {
+							restrictedNamespace = ns;
+							break;
+						}
+					}
+
+					if (restrictedNamespace is not null) {
+						string currentNamespace = GetFullNamespace(context.ContainingSymbol);
+						if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+							string symbolName = targetSymbol.Name;
+							Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, location, symbolName, restrictedNamespace);
+							context.ReportDiagnostic(diagnostic);
+						}
+					}
+				}
+			}
+		}
+
+		private static string GetFullNamespace(ISymbol? symbol) {
+			if (symbol is null) return string.Empty;
+			
+			INamespaceSymbol? ns = symbol.ContainingNamespace;
+			if (ns is null || ns.IsGlobalNamespace) return string.Empty;
+
+			List<string> parts = new();
+			while (ns is not null && !ns.IsGlobalNamespace) {
+				parts.Insert(0, ns.Name);
+				ns = ns.ContainingNamespace;
+			}
+			return string.Join(".", parts);
+		}
+
+		private static bool IsInNamespace(string currentNamespace, string restrictedNamespace) {
+			if (string.IsNullOrEmpty(currentNamespace)) return false;
+			return currentNamespace == restrictedNamespace || currentNamespace.StartsWith(restrictedNamespace + ".", StringComparison.Ordinal);
 		}
 		#endregion
 	}
