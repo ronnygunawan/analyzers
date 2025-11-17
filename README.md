@@ -359,3 +359,58 @@ X x = new() {
 ```cs
 dynamic x = 1; // RG0031: Do not use dynamic type
 ```
+
+### 32. GetHashCode implementation is outdated
+```cs
+public class Person
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    // Bad: Using XOR pattern
+    public override int GetHashCode()
+    {
+        return Name.GetHashCode() ^ Age.GetHashCode(); // RG0032: GetHashCode implementation uses outdated pattern; Consider using HashCode.Combine instead
+    }
+}
+```
+
+**Outdated patterns detected:**
+- XOR pattern: `field1.GetHashCode() ^ field2.GetHashCode()`
+- Manual multiplication pattern: `hash * 23 + field.GetHashCode()`
+- Tuple.Create pattern: `Tuple.Create(field1, field2).GetHashCode()`
+
+**Modern approach:**
+```cs
+public override int GetHashCode()
+{
+    return HashCode.Combine(Name, Age);
+}
+```
+
+### 33. Equals implementation is outdated
+```cs
+public class Person
+{
+    public string Name { get; set; }
+
+    // Bad: Direct cast without null/type check
+    public override bool Equals(object obj)
+    {
+        var other = (Person)obj; // RG0033: Equals implementation uses outdated pattern; Consider using 'is' pattern matching with null/type checks
+        return Name == other.Name;
+    }
+}
+```
+
+**Outdated patterns detected:**
+- Direct casting without null/type checks
+- Using `as` operator without proper null checks
+
+**Modern approach:**
+```cs
+public override bool Equals(object obj)
+{
+    return obj is Person other && Name == other.Name;
+}
+```
