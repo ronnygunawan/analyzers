@@ -35,3 +35,4 @@ RG0028 | Usage | Warning | Required protobuf property should be initialized
 RG0029 | Usage | Error | Can only initialize one of properties in a OneOf case
 RG0030 | Convention | Error | Argument must be locked
 RG0031 | Code Quality | Error | Do not use dynamic type
+RG0032 | Naming | Warning | Static classes containing extension methods should have an 'Extensions' suffix
