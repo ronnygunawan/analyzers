@@ -543,12 +543,25 @@ namespace RG.CodeAnalyzer {
 
 		private static void AnalyzeReadonlyLocals(SyntaxNodeAnalysisContext context) {
 			try {
-				if (context.Node is LocalDeclarationStatementSyntax { Declaration: { Variables: var variables } } localDeclarationStatementSyntax) {
+				if (context.Node is LocalDeclarationStatementSyntax { Declaration: { Type: var declarationType, Variables: var variables } } localDeclarationStatementSyntax) {
 					foreach (VariableDeclaratorSyntax variableDeclaratorSyntax in variables) {
 						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
 							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 							if (localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
 								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, LOCAL_IS_READONLY);
+								
+								// Check for ref local declarations
+								if (declarationType is RefTypeSyntax refTypeSyntax) {
+									// For ref locals with @ prefix, check if they're being initialized from a readonly or mutable source
+									if (variableDeclaratorSyntax.Initializer?.Value is RefExpressionSyntax refExpressionSyntax) {
+										// Check if the ref expression refers to a readonly local, parameter, or field
+										if (!IsRefExpressionReadonly(context, refExpressionSyntax, scopeNode)) {
+											// Report diagnostic for readonly ref local being initialized from mutable source
+											Diagnostic diagnostic = Diagnostic.Create(LOCAL_IS_READONLY, localDeclarationStatementSyntax.GetLocation(), declaredIdentifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
+										}
+									}
+								}
 							}
 						}
 					}
@@ -663,6 +676,37 @@ namespace RG.CodeAnalyzer {
 						&& declaredIdentifier.ValueText == identifier.ValueText: {
 							Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refOrOutArgumentSyntax.GetLocation(), identifier.ValueText);
 							context.ReportDiagnostic(diagnostic);
+							break;
+						}
+					case RefExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: var identifier } } refExpressionSyntax
+					when declaredIdentifier.ValueText == identifier.ValueText: {
+							// This is using a readonly local/parameter in a ref expression (e.g., return ref, or ref argument)
+							// Check if it's inside a return statement, ref reassignment, or declaration
+							if (refExpressionSyntax.Parent is ReturnStatementSyntax) {
+								// return ref readonlyLocal - not allowed
+								Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							} else if (refExpressionSyntax.Parent is EqualsValueClauseSyntax equalsValue) {
+								// This could be a declaration
+								if (equalsValue.Parent is VariableDeclaratorSyntax variableDeclarator
+									&& variableDeclarator.Identifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+									// ref int @readonly = ref readonlySource; - allowed
+									break;
+								} else {
+									// ref int mutable = ref readonlySource; - not allowed
+									Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
+									context.ReportDiagnostic(diagnostic);
+								}
+							} else if (refExpressionSyntax.Parent is AssignmentExpressionSyntax assignmentExpressionSyntax
+								&& assignmentExpressionSyntax.Left is RefExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: var leftIdentifier } }) {
+								// ref mutable = ref readonlySource; - check if left is readonly
+								if (!IsIdentifierDeclaredReadonly(leftIdentifier.ValueText, scopeNode)) {
+									// Target is mutable, source is readonly - not allowed
+									Diagnostic diagnostic = Diagnostic.Create(diagnosticDescriptor, refExpressionSyntax.GetLocation(), identifier.ValueText);
+									context.ReportDiagnostic(diagnostic);
+								}
+								// ref readonly = ref readonlySource; - allowed
+							}
 							break;
 						}
 				}
@@ -1141,6 +1185,60 @@ namespace RG.CodeAnalyzer {
 				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
 				context.ReportDiagnostic(diagnostic);
 			}
+		}
+
+		private static bool IsRefExpressionReadonly(SyntaxNodeAnalysisContext context, RefExpressionSyntax refExpressionSyntax, SyntaxNode scopeNode) {
+			// Check 'in' arguments to ensure they're readonly when the source is an invocation
+			if (refExpressionSyntax.Expression is InvocationExpressionSyntax invocationExpressionSyntax) {
+				if (invocationExpressionSyntax.ArgumentList is { Arguments: var arguments }) {
+					foreach (ArgumentSyntax argument in arguments) {
+						if (argument.RefKindKeyword.IsKind(SyntaxKind.InKeyword)) {
+							if (argument.Expression is IdentifierNameSyntax { Identifier: var inArgIdentifier }
+								&& !IsIdentifierDeclaredReadonly(inArgIdentifier.ValueText, scopeNode)) {
+								// Report RG0024: 'in' argument should be readonly
+								Diagnostic diagnostic = Diagnostic.Create(IN_ARGUMENT_SHOULD_BE_READONLY, argument.GetLocation(), inArgIdentifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+					}
+				}
+				return true; // Method calls returning ref are allowed
+			}
+			
+			// Check if the source is readonly
+			switch (refExpressionSyntax.Expression) {
+				case IdentifierNameSyntax { Identifier: var identifier }:
+					// Check if it's a readonly local or parameter (declared with @ prefix)
+					return IsIdentifierDeclaredReadonly(identifier.ValueText, scopeNode);
+				case MemberAccessExpressionSyntax memberAccessExpression:
+					// For field access, it should not be allowed (always mutable)
+					return false;
+				default:
+					return false;
+			}
+		}
+
+		private static bool IsIdentifierDeclaredReadonly(string identifierValueText, SyntaxNode scopeNode) {
+			// Check if this identifier was declared with @ prefix in the current scope
+			foreach (SyntaxNode node in scopeNode.DescendantNodes()) {
+				switch (node) {
+					case LocalDeclarationStatementSyntax { Declaration: { Variables: var variables } }:
+						foreach (VariableDeclaratorSyntax variableDeclarator in variables) {
+							if (variableDeclarator.Identifier.ValueText == identifierValueText
+								&& variableDeclarator.Identifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+								return true;
+							}
+						}
+						break;
+					case ParameterSyntax { Identifier: var paramIdentifier }:
+						if (paramIdentifier.ValueText == identifierValueText
+							&& paramIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
+							return true;
+						}
+						break;
+				}
+			}
+			return false;
 		}
 
 		#region Helpers
