@@ -272,7 +272,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 6, 31)
+					new DiagnosticResultLocation("Test0.cs", 6, 35)
 				}
 			};
 			DiagnosticResult expected2 = new() {
@@ -280,7 +280,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal3"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 8, 4)
+					new DiagnosticResultLocation("Test0.cs", 8, 12)
 				}
 			};
 			DiagnosticResult expected3 = new() {
@@ -288,7 +288,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal4"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 9, 4)
+					new DiagnosticResultLocation("Test0.cs", 9, 12)
 				}
 			};
 			DiagnosticResult expected4 = new() {
@@ -296,7 +296,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal5"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 10, 4)
+					new DiagnosticResultLocation("Test0.cs", 10, 21)
 				}
 			};
 			DiagnosticResult expected5 = new() {
@@ -307,8 +307,25 @@ namespace Namespace {
 					new DiagnosticResultLocation("Test0.cs", 12, 54)
 				}
 			};
+			// Note: The following diagnostics are for ref reassignments which are not yet fully implemented
+			DiagnosticResult expected6 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 13, 31)
+				}
+			};
+			DiagnosticResult expected7 = new() {
+				Id = "RG0021",
+				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
+				Severity = DiagnosticSeverity.Warning,
+				Locations = new[] {
+					new DiagnosticResultLocation("Test0.cs", 14, 29)
+				}
+			};
 
-			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4, expected5);
+			VerifyCSharpDiagnostic(test, expected1, expected2, expected3, expected4, expected5, expected6, expected7);
 		}
 
 		[TestMethod]

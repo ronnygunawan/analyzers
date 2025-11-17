@@ -572,7 +572,7 @@ namespace RG.CodeAnalyzer {
 				if (context.Node is LocalDeclarationStatementSyntax { Declaration: var declaration } localDeclarationStatementSyntax) {
 					RefTypeSyntax? refTypeSyntax = declaration.Type as RefTypeSyntax;
 					bool isRefLocal = refTypeSyntax is not null;
-					bool isRefReadonlyLocal = isRefLocal && refTypeSyntax.ReadOnlyKeyword.IsKind(SyntaxKind.ReadOnlyKeyword);
+					bool isRefReadonlyLocal = isRefLocal && (refTypeSyntax!.ReadOnlyKeyword.IsKind(SyntaxKind.ReadOnlyKeyword) || declaration.Type.ToString().Contains("readonly"));
 					
 					foreach (VariableDeclaratorSyntax variableDeclaratorSyntax in declaration.Variables) {
 						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
@@ -580,8 +580,17 @@ namespace RG.CodeAnalyzer {
 							
 							// For ref locals with @, check the initializer
 							// - ref int @x can only reference readonly sources (@ vars/params, in params)
-							// - ref readonly int @x can reference readonly sources AND regular vars/params, but NOT ref/out parameters
+							// - ref readonly int @x can reference readonly sources AND regular parameters (but not regular locals or ref/out parameters)
 							if (isRefLocal && variableDeclaratorSyntax.Initializer?.Value is RefExpressionSyntax refExpression) {
+								// Special case: ref readonly locals can reference any regular (non-ref) parameter
+								if (isRefReadonlyLocal 
+									&& refExpression.Expression is IdentifierNameSyntax tempId
+									&& context.SemanticModel.GetSymbolInfo(tempId, context.CancellationToken).Symbol is IParameterSymbol tempParam
+									&& tempParam.RefKind == RefKind.None) {
+									// This is allowed, skip the diagnostic
+									goto skipRefCheck;
+								}
+								
 								// Check if the ref target is a readonly or mutable variable
 								bool refTargetIsReadonly = false;
 								if (refExpression.Expression is IdentifierNameSyntax refTargetIdentifier) {
@@ -596,26 +605,24 @@ namespace RG.CodeAnalyzer {
 													refTargetIsReadonly = singleVar.Identifier.Text.StartsWith("@", StringComparison.Ordinal);
 												}
 											}
-											// For ref readonly locals, also allow regular (non-ref) locals
-											if (isRefReadonlyLocal && !refTargetIsReadonly) {
-												refTargetIsReadonly = true; // Regular local is OK for ref readonly
-											}
+											// For ref readonly locals, regular local variables are NOT allowed
 										} else if (symbol is IParameterSymbol paramSymbol) {
+											// For ref readonly locals, allow regular (non-ref/out) parameters
+											if (isRefReadonlyLocal && paramSymbol.RefKind == RefKind.None) {
+												refTargetIsReadonly = true;
+											}
 											// Check if it's an 'in' parameter or a parameter declared with @
-											if (paramSymbol.RefKind == RefKind.In) {
+											else if (paramSymbol.RefKind == RefKind.In) {
 												refTargetIsReadonly = true;
 											} else if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out) {
 												// ref/out parameters are never readonly
 												refTargetIsReadonly = false;
 											} else if (paramSymbol.DeclaringSyntaxReferences.Length > 0) {
+												// Regular parameter - check if it has @ prefix
 												SyntaxNode paramDeclarationNode = paramSymbol.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken);
 												if (paramDeclarationNode is ParameterSyntax paramSyntax) {
 													refTargetIsReadonly = paramSyntax.Identifier.Text.StartsWith("@", StringComparison.Ordinal);
 												}
-											}
-											// For ref readonly locals, also allow regular (non-ref) parameters
-											if (isRefReadonlyLocal && !refTargetIsReadonly && paramSymbol.RefKind == RefKind.None) {
-												refTargetIsReadonly = true; // Regular parameter is OK for ref readonly
 											}
 										}
 									}
@@ -639,6 +646,7 @@ namespace RG.CodeAnalyzer {
 								}
 							}
 							
+							skipRefCheck:
 							if (localDeclarationStatementSyntax.Ancestors().FirstOrDefault(ancestor => ancestor.Kind() is SyntaxKind.Block) is SyntaxNode scopeNode) {
 								AnalyzeReadonlyLocalUsages(context, declaredIdentifier, scopeNode, LOCAL_IS_READONLY);
 							}
@@ -759,6 +767,11 @@ namespace RG.CodeAnalyzer {
 						}
 					case RefExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: var identifier } } refExpressionSyntax
 					when declaredIdentifier.ValueText == identifier.ValueText: {
+							// Skip ref reassignments - they appear in ExpressionStatementSyntax, not in variable declarations
+							if (refExpressionSyntax.Ancestors().Any(a => a is ExpressionStatementSyntax)) {
+								break;
+							}
+							
 							// Check if this ref expression is used in a ref local declaration
 							if (refExpressionSyntax.Parent is EqualsValueClauseSyntax equalsValueClause
 								&& equalsValueClause.Parent is VariableDeclaratorSyntax variableDeclarator

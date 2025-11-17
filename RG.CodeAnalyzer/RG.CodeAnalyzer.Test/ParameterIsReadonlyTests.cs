@@ -263,7 +263,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly parameter", "readonlyParamName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 5, 31)
+					new DiagnosticResultLocation("Test0.cs", 5, 35)
 				}
 			};
 			DiagnosticResult expected2 = new() {
@@ -271,7 +271,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal2"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 7, 4)
+					new DiagnosticResultLocation("Test0.cs", 7, 12)
 				}
 			};
 			DiagnosticResult expected3 = new() {
@@ -279,7 +279,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocal4"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 9, 4)
+					new DiagnosticResultLocation("Test0.cs", 9, 21)
 				}
 			};
 
