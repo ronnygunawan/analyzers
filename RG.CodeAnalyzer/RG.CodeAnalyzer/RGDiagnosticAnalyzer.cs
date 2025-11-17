@@ -43,6 +43,7 @@ namespace RG.CodeAnalyzer {
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
+		public const string ENUM_NAME_LONGER_THAN_STRING_LENGTH_ID = "RG0032";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -314,6 +315,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not use dynamic type.");
 
+		private static readonly DiagnosticDescriptor ENUM_NAME_LONGER_THAN_STRING_LENGTH = new(
+			id: ENUM_NAME_LONGER_THAN_STRING_LENGTH_ID,
+			title: "Longest enum name is longer than column max length",
+			messageFormat: "Longest enum name '{0}' ({1} characters) exceeds StringLength maximum of {2}",
+			category: "Data",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Longest enum name is longer than StringLength maximum.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -344,7 +354,8 @@ namespace RG.CodeAnalyzer {
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
 			ARGUMENT_MUST_BE_LOCKED,
-			DO_NOT_USE_DYNAMIC_TYPE
+			DO_NOT_USE_DYNAMIC_TYPE,
+			ENUM_NAME_LONGER_THAN_STRING_LENGTH
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -425,6 +436,9 @@ namespace RG.CodeAnalyzer {
 
 			// DO_NOT_USE_DYNAMIC_TYPE
 			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
+
+			// ENUM_NAME_LONGER_THAN_STRING_LENGTH
+			context.RegisterSyntaxNodeAction(AnalyzePropertyDeclarations, SyntaxKind.PropertyDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1140,6 +1154,75 @@ namespace RG.CodeAnalyzer {
 			}) {
 				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
 				context.ReportDiagnostic(diagnostic);
+			}
+		}
+
+		private static void AnalyzePropertyDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is PropertyDeclarationSyntax propertyDeclaration) {
+					// Get the property type symbol
+					if (context.SemanticModel.GetTypeInfo(propertyDeclaration.Type, context.CancellationToken).Type is not INamedTypeSymbol typeSymbol) {
+						return;
+					}
+
+					// Check if the property type is an enum
+					if (typeSymbol.TypeKind != TypeKind.Enum) {
+						return;
+					}
+
+					// Check for StringLength attribute
+					AttributeSyntax? stringLengthAttribute = propertyDeclaration.AttributeLists
+						.SelectMany(attrList => attrList.Attributes)
+						.FirstOrDefault(attr => attr.Name.ToString() is "StringLength" or "System.ComponentModel.DataAnnotations.StringLength");
+
+					if (stringLengthAttribute is null) {
+						return;
+					}
+
+					// Get the StringLength max length value
+					if (stringLengthAttribute.ArgumentList is null || stringLengthAttribute.ArgumentList.Arguments.Count == 0) {
+						return;
+					}
+
+					AttributeArgumentSyntax firstArgument = stringLengthAttribute.ArgumentList.Arguments[0];
+					if (firstArgument.Expression is not LiteralExpressionSyntax literalExpression
+						|| literalExpression.Token.Value is not int maxLength) {
+						return;
+					}
+
+					// Get enum declaration
+					if (typeSymbol.DeclaringSyntaxReferences.Length == 0) {
+						return;
+					}
+
+					if (typeSymbol.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is not EnumDeclarationSyntax enumDeclaration) {
+						return;
+					}
+
+					// Find the longest enum member name
+					string longestName = "";
+					int longestLength = 0;
+					foreach (EnumMemberDeclarationSyntax member in enumDeclaration.Members) {
+						string memberName = member.Identifier.Text;
+						if (memberName.Length > longestLength) {
+							longestLength = memberName.Length;
+							longestName = memberName;
+						}
+					}
+
+					// Report diagnostic if longest name exceeds StringLength max
+					if (longestLength > maxLength) {
+						Diagnostic diagnostic = Diagnostic.Create(
+							ENUM_NAME_LONGER_THAN_STRING_LENGTH,
+							propertyDeclaration.GetLocation(),
+							longestName,
+							longestLength,
+							maxLength);
+						context.ReportDiagnostic(diagnostic);
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
