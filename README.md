@@ -369,6 +369,14 @@ static class Utilities { // RG0032: 'Utilities' contains extension methods and s
 ```
 Code fix: Rename to `UtilitiesExtensions`
 
+### 33. Use overload without CancellationToken if default or CancellationToken.None was supplied
+```cs
+var list = await _dbContext.Items.ToListAsync(CancellationToken.None); // RG0033: Use overload without CancellationToken instead
+```
+If you explicitly pass `CancellationToken.None` or `default` to a method that has an overload without the CancellationToken parameter, use the overload without it instead.
+
+Code fix: Remove the CancellationToken argument
+
 ## Code Refactorings
 
 ### Generate GUID in empty string literal
