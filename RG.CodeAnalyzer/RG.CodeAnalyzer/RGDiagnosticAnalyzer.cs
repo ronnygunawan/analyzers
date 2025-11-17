@@ -43,6 +43,7 @@ namespace RG.CodeAnalyzer {
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
+		public const string STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID = "RG0032";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -314,6 +315,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not use dynamic type.");
 
+		private static readonly DiagnosticDescriptor STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX = new(
+			id: STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID,
+			title: "Static classes containing extension methods should have an 'Extensions' suffix",
+			messageFormat: "'{0}' contains extension methods and should have an 'Extensions' suffix",
+			category: "Naming",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Static classes containing extension methods should have an 'Extensions' suffix.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -344,7 +354,8 @@ namespace RG.CodeAnalyzer {
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
 			ARGUMENT_MUST_BE_LOCKED,
-			DO_NOT_USE_DYNAMIC_TYPE
+			DO_NOT_USE_DYNAMIC_TYPE,
+			STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -425,6 +436,9 @@ namespace RG.CodeAnalyzer {
 
 			// DO_NOT_USE_DYNAMIC_TYPE
 			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
+
+			// STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
+			context.RegisterSyntaxNodeAction(AnalyzeClassDeclarations, SyntaxKind.ClassDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1140,6 +1154,35 @@ namespace RG.CodeAnalyzer {
 			}) {
 				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
 				context.ReportDiagnostic(diagnostic);
+			}
+		}
+
+		private static void AnalyzeClassDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is ClassDeclarationSyntax classDeclarationSyntax
+					&& classDeclarationSyntax.Modifiers.Any(SyntaxKind.StaticKeyword)) {
+					
+					// Check if the class contains extension methods
+					bool hasExtensionMethods = classDeclarationSyntax.Members
+						.OfType<MethodDeclarationSyntax>()
+						.Any(method => method.ParameterList.Parameters.Count > 0 
+							&& method.ParameterList.Parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword));
+
+					if (hasExtensionMethods) {
+						string className = classDeclarationSyntax.Identifier.ValueText;
+						
+						// Check if the class name already ends with "Extensions"
+						if (!className.EndsWith("Extensions", StringComparison.Ordinal)) {
+							Diagnostic diagnostic = Diagnostic.Create(
+								STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX,
+								classDeclarationSyntax.Identifier.GetLocation(),
+								className);
+							context.ReportDiagnostic(diagnostic);
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
