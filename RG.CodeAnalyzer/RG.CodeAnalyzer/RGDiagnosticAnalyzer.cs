@@ -1374,7 +1374,7 @@ namespace RG.CodeAnalyzer {
 
 		internal static string ToPascalCase(string camelCaseIdentifierName) {
 			if (!IsInCamelCase(camelCaseIdentifierName)) throw new ArgumentException("Identifier name is not in camel case.", nameof(camelCaseIdentifierName));
-			return $"{char.ToUpper(camelCaseIdentifierName[0], CultureInfo.CurrentCulture)}{camelCaseIdentifierName.Substring(1)}";
+			return $"{char.ToUpper(camelCaseIdentifierName[0], CultureInfo.InvariantCulture)}{camelCaseIdentifierName.Substring(1)}";
 		}
 		#endregion
 	}
