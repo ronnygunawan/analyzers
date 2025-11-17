@@ -44,6 +44,7 @@ namespace RG.CodeAnalyzer {
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
 		public const string STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID = "RG0032";
+		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID = "RG0033";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -324,6 +325,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Static classes containing extension methods should have an 'Extensions' suffix.");
 
+		private static readonly DiagnosticDescriptor USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT = new(
+			id: USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID,
+			title: "Use overload without CancellationToken if default or CancellationToken.None was supplied",
+			messageFormat: "Use overload without CancellationToken instead",
+			category: "Performance",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Use overload without CancellationToken if default or CancellationToken.None was supplied.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -355,7 +365,8 @@ namespace RG.CodeAnalyzer {
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
 			ARGUMENT_MUST_BE_LOCKED,
 			DO_NOT_USE_DYNAMIC_TYPE,
-			STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
+			STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX,
+			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -401,6 +412,7 @@ namespace RG.CodeAnalyzer {
 			// NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN
 			// DO_NOT_PARSE_USING_CONVERT
 			// ARGUMENT_MUST_BE_LOCKED
+			// USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT
 			context.RegisterSyntaxNodeAction(AnalyzeInvocations, SyntaxKind.InvocationExpression);
 
 			// VAR_INFERRED_TYPE_IS_OBSOLETE
@@ -824,6 +836,44 @@ namespace RG.CodeAnalyzer {
 									&& methodParameters.Last().Type.ToString() is "CancellationToken" or "System.Threading.CancellationToken") {
 									Diagnostic diagnostic = Diagnostic.Create(NOT_USING_OVERLOAD_WITH_CANCELLATION_TOKEN, invocationExpressionSyntax.GetLocation());
 									context.ReportDiagnostic(diagnostic);
+								}
+							}
+							// RG0033: Check if CancellationToken.None or default was passed and there's an overload without it
+							if (methodParameters.Length > 0
+								&& methodParameters.Last().Type.ToString() is "CancellationToken" or "System.Threading.CancellationToken"
+								&& invocationArguments.Count > 0) {
+								ArgumentSyntax lastArgument = invocationArguments.Last();
+								bool isDefaultOrNone = false;
+								
+								if (lastArgument.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier: { ValueText: "None" } } } memberAccess) {
+									if (context.SemanticModel.GetSymbolInfo(memberAccess.Expression, context.CancellationToken) is { Symbol: INamedTypeSymbol typeSymbol }
+										&& typeSymbol.ToString() is "System.Threading.CancellationToken" or "CancellationToken") {
+										isDefaultOrNone = true;
+									}
+								} else if (lastArgument.Expression is LiteralExpressionSyntax { Token: { ValueText: "default" } }) {
+									isDefaultOrNone = true;
+								} else if (lastArgument.Expression is DefaultExpressionSyntax) {
+									isDefaultOrNone = true;
+								}
+								
+								if (isDefaultOrNone) {
+									foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression, context.CancellationToken).OfType<IMethodSymbol>()) {
+										if (overloadSymbol.Parameters.Length == methodParameters.Length - 1
+											&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)) {
+											bool signatureMatches = true;
+											for (int i = 0; i < overloadSymbol.Parameters.Length; i++) {
+												if (!SymbolEqualityComparer.Default.Equals(overloadSymbol.Parameters[i].Type, methodParameters[i].Type)) {
+													signatureMatches = false;
+													break;
+												}
+											}
+											if (signatureMatches) {
+												Diagnostic diagnostic = Diagnostic.Create(USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT, invocationExpressionSyntax.GetLocation());
+												context.ReportDiagnostic(diagnostic);
+												break;
+											}
+										}
+									}
 								}
 							}
 							ImmutableList<ParameterSyntax> mustBeLockedParameters = declaredParameters.Where(declaredParameter => declaredParameter.AttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "MustBeLocked" or "RG.Annotations.MustBeLocked"))).ToImmutableList();
