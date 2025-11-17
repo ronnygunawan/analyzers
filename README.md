@@ -271,12 +271,16 @@ Put an `@` prefix to local name to mark it as a readonly local
 int @max = 100;
 max = 50; // RG0021: 'max' is a readonly local variable
 
+ref int @refLocal = ref someVar; // OK if someVar is readonly
+ref int @refLocal2 = ref mutableVar; // RG0021: cannot assign mutable source to readonly ref local
+
+ref readonly int @refReadonlyLocal = ref someVar; // OK, ref readonly can reference any non-ref-parameter
 ```
 
 ---
 **NOTE**
 
-This is a work in progress and does not currently support `ref` locals, `ref readonly` locals, and `ref` expressions.
+This feature now supports `ref` locals and `ref readonly` locals. Ref reassignments (e.g., `ref x = ref y;` where x is already declared) are not yet fully implemented.
 
 ---
 
@@ -293,7 +297,18 @@ void Foo(out int @x) { // RG0023: 'out' parameter 'x' cannot be readonly
 }
 ```
 
-### 24. (Reserved)
+### 24. In argument should be readonly
+```cs
+void Foo(in int value) {
+    // ...
+}
+
+int mutableVar = 0;
+Foo(in mutableVar); // RG0024: 'in' argument 'mutableVar' should be readonly
+
+int @readonlyVar = 0;
+Foo(in readonlyVar); // OK
+```
 
 ### 25. Casting to an incompatible enum
 ```cs
