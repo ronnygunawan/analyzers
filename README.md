@@ -368,3 +368,12 @@ static class Utilities { // RG0032: 'Utilities' contains extension methods and s
 }
 ```
 Code fix: Rename to `UtilitiesExtensions`
+
+## Code Refactorings
+
+### Generate GUID in empty string literal
+Place your cursor on an empty string literal `""` and invoke code actions (Ctrl+. or Cmd+.) to see the "Generate GUID" refactoring option.
+```cs
+string id = ""; // Offers: Generate GUID
+// After applying: string id = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+```
