@@ -400,3 +400,61 @@ Place your cursor on an empty string literal `""` and invoke code actions (Ctrl+
 string id = ""; // Offers: Generate GUID
 // After applying: string id = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 ```
+
+### 34. Service registered with Add{Lifetime} must have corresponding lifetime attribute
+Services registered with dependency injection must be marked with the appropriate lifetime attribute.
+
+```cs
+using Microsoft.Extensions.DependencyInjection;
+
+namespace MyApp {
+    class MyService { // RG0034: Service 'MyService' registered with AddSingleton must be marked with [Singleton] attribute
+    }
+    
+    class Startup {
+        void ConfigureServices(IServiceCollection services) {
+            services.AddSingleton<MyService>();
+        }
+    }
+}
+```
+
+Correct usage:
+```cs
+using Microsoft.Extensions.DependencyInjection;
+using RG.Annotations;
+
+namespace MyApp {
+    [Singleton]
+    class MyService {
+    }
+    
+    class Startup {
+        void ConfigureServices(IServiceCollection services) {
+            services.AddSingleton<MyService>();
+        }
+    }
+}
+```
+
+### 35. Service with longer lifetime cannot depend on service with shorter lifetime
+A service with a longer lifetime (Singleton > Scoped > Transient) cannot depend on a service with a shorter lifetime.
+
+```cs
+using RG.Annotations;
+
+namespace MyApp {
+    [Transient]
+    class TransientService {
+    }
+    
+    [Singleton]
+    class SingletonService {
+        // RG0035: Singleton service 'SingletonService' cannot depend on Transient service 'TransientService'
+        public SingletonService(TransientService service) {
+        }
+    }
+}
+```
+
+This rule also applies to property and field dependencies.

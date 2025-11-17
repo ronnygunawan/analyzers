@@ -43,7 +43,7 @@ namespace TestNamespace {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 20, 4)
+						new DiagnosticResultLocation("Test0.cs", 18, 4)
 					}
 			};
 
@@ -83,9 +83,17 @@ namespace TestNamespace {
 		[TestMethod]
 		public void TestAddScopedWithoutAttribute() {
 			string test = @"
-using Microsoft.Extensions.DependencyInjection;
+namespace Microsoft.Extensions.DependencyInjection {
+	interface IServiceCollection { }
+	
+	static class ServiceCollectionServiceExtensions {
+		public static IServiceCollection AddScoped<T>(this IServiceCollection services) => services;
+	}
+}
 
 namespace TestNamespace {
+	using Microsoft.Extensions.DependencyInjection;
+
 	class MyService {
 	}
 
@@ -103,7 +111,7 @@ namespace TestNamespace {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 10, 4)
+						new DiagnosticResultLocation("Test0.cs", 18, 4)
 					}
 			};
 
@@ -113,10 +121,18 @@ namespace TestNamespace {
 		[TestMethod]
 		public void TestAddScopedWithCorrectAttribute() {
 			string test = @"
-using Microsoft.Extensions.DependencyInjection;
-using RG.Annotations;
+namespace Microsoft.Extensions.DependencyInjection {
+	interface IServiceCollection { }
+	
+	static class ServiceCollectionServiceExtensions {
+		public static IServiceCollection AddScoped<T>(this IServiceCollection services) => services;
+	}
+}
 
 namespace TestNamespace {
+	using Microsoft.Extensions.DependencyInjection;
+	using RG.Annotations;
+
 	[Scoped]
 	class MyService {
 	}
@@ -135,9 +151,17 @@ namespace TestNamespace {
 		[TestMethod]
 		public void TestAddTransientWithoutAttribute() {
 			string test = @"
-using Microsoft.Extensions.DependencyInjection;
+namespace Microsoft.Extensions.DependencyInjection {
+	interface IServiceCollection { }
+	
+	static class ServiceCollectionServiceExtensions {
+		public static IServiceCollection AddTransient<T>(this IServiceCollection services) => services;
+	}
+}
 
 namespace TestNamespace {
+	using Microsoft.Extensions.DependencyInjection;
+
 	class MyService {
 	}
 
@@ -155,7 +179,7 @@ namespace TestNamespace {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 10, 4)
+						new DiagnosticResultLocation("Test0.cs", 18, 4)
 					}
 			};
 
@@ -165,10 +189,18 @@ namespace TestNamespace {
 		[TestMethod]
 		public void TestAddTransientWithCorrectAttribute() {
 			string test = @"
-using Microsoft.Extensions.DependencyInjection;
-using RG.Annotations;
+namespace Microsoft.Extensions.DependencyInjection {
+	interface IServiceCollection { }
+	
+	static class ServiceCollectionServiceExtensions {
+		public static IServiceCollection AddTransient<T>(this IServiceCollection services) => services;
+	}
+}
 
 namespace TestNamespace {
+	using Microsoft.Extensions.DependencyInjection;
+	using RG.Annotations;
+
 	[Transient]
 	class MyService {
 	}
@@ -187,10 +219,18 @@ namespace TestNamespace {
 		[TestMethod]
 		public void TestAddSingletonWithWrongAttribute() {
 			string test = @"
-using Microsoft.Extensions.DependencyInjection;
-using RG.Annotations;
+namespace Microsoft.Extensions.DependencyInjection {
+	interface IServiceCollection { }
+	
+	static class ServiceCollectionServiceExtensions {
+		public static IServiceCollection AddSingleton<T>(this IServiceCollection services) => services;
+	}
+}
 
 namespace TestNamespace {
+	using Microsoft.Extensions.DependencyInjection;
+	using RG.Annotations;
+
 	[Scoped]
 	class MyService {
 	}
@@ -209,7 +249,7 @@ namespace TestNamespace {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 12, 4)
+						new DiagnosticResultLocation("Test0.cs", 20, 4)
 					}
 			};
 
