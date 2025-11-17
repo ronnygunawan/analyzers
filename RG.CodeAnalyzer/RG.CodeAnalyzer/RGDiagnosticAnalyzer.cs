@@ -578,7 +578,9 @@ namespace RG.CodeAnalyzer {
 						if (variableDeclaratorSyntax is { Identifier: var declaredIdentifier }
 							&& declaredIdentifier.Text.StartsWith("@", StringComparison.Ordinal)) {
 							
-							// For ref or ref readonly locals with @, check the initializer
+							// For ref locals with @, check the initializer
+							// - ref int @x can only reference readonly sources (@ vars/params, in params)
+							// - ref readonly int @x can reference readonly sources AND regular vars/params, but NOT ref/out parameters
 							if (isRefLocal && variableDeclaratorSyntax.Initializer?.Value is RefExpressionSyntax refExpression) {
 								// Check if the ref target is a readonly or mutable variable
 								bool refTargetIsReadonly = false;
@@ -594,15 +596,26 @@ namespace RG.CodeAnalyzer {
 													refTargetIsReadonly = singleVar.Identifier.Text.StartsWith("@", StringComparison.Ordinal);
 												}
 											}
+											// For ref readonly locals, also allow regular (non-ref) locals
+											if (isRefReadonlyLocal && !refTargetIsReadonly) {
+												refTargetIsReadonly = true; // Regular local is OK for ref readonly
+											}
 										} else if (symbol is IParameterSymbol paramSymbol) {
 											// Check if it's an 'in' parameter or a parameter declared with @
 											if (paramSymbol.RefKind == RefKind.In) {
 												refTargetIsReadonly = true;
+											} else if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out) {
+												// ref/out parameters are never readonly
+												refTargetIsReadonly = false;
 											} else if (paramSymbol.DeclaringSyntaxReferences.Length > 0) {
 												SyntaxNode paramDeclarationNode = paramSymbol.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken);
 												if (paramDeclarationNode is ParameterSyntax paramSyntax) {
 													refTargetIsReadonly = paramSyntax.Identifier.Text.StartsWith("@", StringComparison.Ordinal);
 												}
+											}
+											// For ref readonly locals, also allow regular (non-ref) parameters
+											if (isRefReadonlyLocal && !refTargetIsReadonly && paramSymbol.RefKind == RefKind.None) {
+												refTargetIsReadonly = true; // Regular parameter is OK for ref readonly
 											}
 										}
 									}
