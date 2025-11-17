@@ -1361,6 +1361,11 @@ namespace RG.CodeAnalyzer {
 				}
 
 				if (context.Node is IdentifierNameSyntax identifierName) {
+					// Skip identifiers that are part of attribute applications
+					if (identifierName.Parent is AttributeSyntax || identifierName.Ancestors().OfType<AttributeSyntax>().Any()) {
+						return;
+					}
+
 					ISymbol? symbol = context.SemanticModel.GetSymbolInfo(identifierName, context.CancellationToken).Symbol;
 					if (symbol is not null) {
 						CheckRestrictedUsage(context, identifierName.GetLocation(), symbol);
@@ -1631,12 +1636,29 @@ namespace RG.CodeAnalyzer {
 
 		private static void CheckSymbolRestriction(SyntaxNodeAnalysisContext context, Location location, ISymbol targetSymbol) {
 			foreach (AttributeData attribute in targetSymbol.GetAttributes()) {
-				if (attribute.AttributeClass is { Name: "RestrictToAttribute" }) {
+				if (attribute.AttributeClass?.Name == "RestrictToAttribute") {
 					string? restrictedNamespace = null;
+					
+					// Try named arguments first
 					foreach (var namedArg in attribute.NamedArguments) {
 						if (namedArg.Key == "Namespace" && namedArg.Value.Value is string ns) {
 							restrictedNamespace = ns;
 							break;
+						}
+					}
+					
+					// If not found in named arguments, try constructor arguments
+					if (restrictedNamespace is null && attribute.ConstructorArguments.Length > 0) {
+						if (attribute.ConstructorArguments[0].Value is string ns) {
+							restrictedNamespace = ns;
+						}
+					}
+					
+					// If still null, try to find Namespace property value
+					if (restrictedNamespace is null) {
+						var namespaceArg = attribute.NamedArguments.FirstOrDefault(arg => arg.Key == "Namespace");
+						if (namespaceArg.Value.Value is string ns) {
+							restrictedNamespace = ns;
 						}
 					}
 

@@ -12,7 +12,7 @@ namespace RG.CodeAnalyzer.Test {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public class Foo { }
 
 	class C : Foo { }
@@ -27,7 +27,7 @@ namespace Baz {
 			string test = @"
 using RG.Annotations;
 
-[RestrictTo(Namespace = ""Baz"")]
+[RestrictTo(""Baz"")]
 public class Foo { }
 
 namespace Bar {
@@ -54,7 +54,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public class Foo { }
 }
 
@@ -72,7 +72,7 @@ namespace Baz.Sub {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public class Foo {
 		public static int Value = 42;
 	}
@@ -106,7 +106,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public class Foo { }
 }
 
@@ -138,7 +138,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public struct Foo { }
 }
 
@@ -170,7 +170,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public enum Foo { A, B }
 }
 
@@ -213,7 +213,7 @@ using RG.Annotations;
 
 namespace Baz {
 	public class Foo {
-		[RestrictTo(Namespace = ""Baz"")]
+		[RestrictTo(""Baz"")]
 		public static int Value { get; set; }
 	}
 }
@@ -247,7 +247,7 @@ using RG.Annotations;
 
 namespace Baz {
 	public class Foo {
-		[RestrictTo(Namespace = ""Baz"")]
+		[RestrictTo(""Baz"")]
 		public static int Value = 42;
 	}
 }
@@ -281,7 +281,7 @@ using RG.Annotations;
 
 namespace Baz {
 	public class Foo {
-		[RestrictTo(Namespace = ""Baz"")]
+		[RestrictTo(""Baz"")]
 		public static void DoSomething() { }
 	}
 }
@@ -331,7 +331,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public record Foo { }
 }
 
@@ -363,7 +363,7 @@ namespace Bar {
 using RG.Annotations;
 
 namespace Baz {
-	[RestrictTo(Namespace = ""Baz"")]
+	[RestrictTo(""Baz"")]
 	public delegate void Foo();
 }
 
