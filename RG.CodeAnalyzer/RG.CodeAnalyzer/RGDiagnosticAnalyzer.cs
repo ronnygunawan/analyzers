@@ -43,6 +43,7 @@ namespace RG.CodeAnalyzer {
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
+		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED_ID = "RG0032";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -314,6 +315,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not use dynamic type.");
 
+		private static readonly DiagnosticDescriptor USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED = new(
+			id: USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED_ID,
+			title: "Use overload without CancellationToken if default or CancellationToken.None was supplied",
+			messageFormat: "Use overload without CancellationToken parameter instead",
+			category: "Performance",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Use overload without CancellationToken if default or CancellationToken.None was supplied.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -344,7 +354,8 @@ namespace RG.CodeAnalyzer {
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
 			ARGUMENT_MUST_BE_LOCKED,
-			DO_NOT_USE_DYNAMIC_TYPE
+			DO_NOT_USE_DYNAMIC_TYPE,
+			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -785,6 +796,69 @@ namespace RG.CodeAnalyzer {
 							}
 						}
 					} else if (context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken) is { Symbol: IMethodSymbol { Parameters: { } methodParameters, ReturnType: { } methodReturnType } }) {
+						// Temporary debug: always report diagnostic to verify this code is reached
+						if (methodParameters.Length > 0 && invocationArguments.Count > 0) {
+							var lastParam = methodParameters.Last();
+							if (lastParam.Type.ToString().Contains("CancellationToken")) {
+								context.ReportDiagnostic(Diagnostic.Create(USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED, invocationExpressionSyntax.GetLocation()));
+							}
+						}
+						
+						// RG0032: Use overload without CancellationToken if default or CancellationToken.None was supplied
+						/*
+						if (methodParameters.Length > 0 
+							&& invocationArguments.Count == methodParameters.Length) {
+							
+							// Debug: Check if last parameter is CancellationToken
+							var lastParamType = methodParameters.Last().Type.ToString();
+							if (lastParamType is "CancellationToken" or "System.Threading.CancellationToken") {
+							ArgumentSyntax lastArgument = invocationArguments.Last();
+							bool isDefaultOrNone = false;
+							
+							// Check if argument has a constant value
+							Optional<object?> constantValue = context.SemanticModel.GetConstantValue(lastArgument.Expression, context.CancellationToken);
+							if (constantValue.HasValue && constantValue.Value is null) {
+								// This handles both default and CancellationToken.None (which has a default value)
+								isDefaultOrNone = true;
+							}
+							// Also check through syntax patterns for robustness
+							else if (lastArgument.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "None" } memberAccess) {
+								if (context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is IFieldSymbol fieldSymbol
+									&& fieldSymbol.ContainingType.ToString() is "System.Threading.CancellationToken") {
+									isDefaultOrNone = true;
+								}
+							}
+							else if (lastArgument.Expression is LiteralExpressionSyntax literalExpr 
+								&& literalExpr.Token.IsKind(SyntaxKind.DefaultKeyword)) {
+								isDefaultOrNone = true;
+							}
+							else if (lastArgument.Expression is DefaultExpressionSyntax) {
+								isDefaultOrNone = true;
+							}
+							
+							if (isDefaultOrNone) {
+								// Check if there's an overload without the CancellationToken parameter
+								foreach (IMethodSymbol overloadSymbol in context.SemanticModel.GetMemberGroup(invocationExpressionSyntax.Expression, context.CancellationToken).OfType<IMethodSymbol>()) {
+									if (overloadSymbol.Parameters.Length == methodParameters.Length - 1
+										&& SymbolEqualityComparer.Default.Equals(overloadSymbol.ReturnType, methodReturnType)) {
+										bool signatureMatches = true;
+										for (int i = 0; i < overloadSymbol.Parameters.Length; i++) {
+											if (!SymbolEqualityComparer.Default.Equals(overloadSymbol.Parameters[i].Type, methodParameters[i].Type)) {
+												signatureMatches = false;
+											}
+										}
+										if (signatureMatches) {
+											Diagnostic diagnostic = Diagnostic.Create(USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_NONE_SUPPLIED, lastArgument.GetLocation());
+											context.ReportDiagnostic(diagnostic);
+											break;
+										}
+									}
+								}
+							}
+							}
+						}
+						*/
+						
 						MethodDeclarationSyntax? methodDeclaration = invocationExpressionSyntax.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 						if (methodDeclaration is { ParameterList: { Parameters: { } declaredParameters } }) {
 							if (declaredParameters.Any(callerParameter => callerParameter.Type?.ToString() is "CancellationToken" or "System.Threading.CancellationToken")) {
@@ -812,6 +886,7 @@ namespace RG.CodeAnalyzer {
 									context.ReportDiagnostic(diagnostic);
 								}
 							}
+							
 							ImmutableList<ParameterSyntax> mustBeLockedParameters = declaredParameters.Where(declaredParameter => declaredParameter.AttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "MustBeLocked" or "RG.Annotations.MustBeLocked"))).ToImmutableList();
 							if (mustBeLockedParameters.Count > 0) {
 								// TODO: Implement RG0030
