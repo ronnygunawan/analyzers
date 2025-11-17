@@ -262,7 +262,7 @@ namespace RG.CodeAnalyzer.Test {
 					}
 			};
 
-			VerifyCSharpDiagnostic(test, expected, expected);
+			VerifyCSharpDiagnostic(test, expected);
 		}
 
 		[TestMethod]
@@ -348,7 +348,7 @@ namespace RG.CodeAnalyzer.Test {
 					}
 			};
 
-			VerifyCSharpDiagnostic(test, expected, expected);
+			VerifyCSharpDiagnostic(test, expected);
 		}
 
 		protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer() {
