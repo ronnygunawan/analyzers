@@ -40,7 +40,7 @@ namespace RG.CodeAnalyzer.Test {
 			DiagnosticResult expected = new() {
 				Id = "RG0001",
 				Message = string.Format("Asynchronous operation awaited inside {0}", "for loop"),
-				Severity = DiagnosticSeverity.Warning,
+				Severity = DiagnosticSeverity.Info,
 				Locations =
 					new[] {
 							new DiagnosticResultLocation("Test0.cs", 17, 6)
@@ -77,7 +77,7 @@ namespace RG.CodeAnalyzer.Test {
 			DiagnosticResult expected = new() {
 				Id = "RG0001",
 				Message = string.Format("Asynchronous operation awaited inside {0}", "foreach loop"),
-				Severity = DiagnosticSeverity.Warning,
+				Severity = DiagnosticSeverity.Info,
 				Locations =
 					new[] {
 							new DiagnosticResultLocation("Test0.cs", 18, 6)
