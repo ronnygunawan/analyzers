@@ -242,7 +242,6 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		[Ignore("ref and ref readonly features not yet supported - see README")]
 		public void TestRefAssignment() {
 			string test = @"
 namespace Namespace {
@@ -371,7 +370,6 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		[Ignore("ref and ref readonly features not yet supported - see README")]
 		public void TestReturnRef() {
 			string test = @"
 namespace Namespace {
@@ -392,7 +390,7 @@ namespace Namespace {
 				Message = string.Format("'{0}' is a readonly local variable", "readonlyLocalName"),
 				Severity = DiagnosticSeverity.Warning,
 				Locations = new[] {
-					new DiagnosticResultLocation("Test0.cs", 6, 13)
+					new DiagnosticResultLocation("Test0.cs", 9, 12)
 				}
 			};
 
