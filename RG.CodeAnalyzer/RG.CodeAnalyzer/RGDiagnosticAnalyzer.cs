@@ -45,6 +45,8 @@ namespace RG.CodeAnalyzer {
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
 		public const string STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID = "RG0032";
 		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID = "RG0033";
+		public const string SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE_ID = "RG0034";
+		public const string SERVICE_LIFETIME_MISMATCH_ID = "RG0035";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -334,6 +336,24 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Use overload without CancellationToken if default or CancellationToken.None was supplied.");
 
+		private static readonly DiagnosticDescriptor SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE = new(
+			id: SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE_ID,
+			title: "Service registered with Add{Lifetime} must have corresponding lifetime attribute",
+			messageFormat: "Service '{0}' registered with {1} must be marked with [{2}] attribute",
+			category: "Convention",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Services registered with AddSingleton, AddScoped, or AddTransient must have the corresponding lifetime attribute.");
+
+		private static readonly DiagnosticDescriptor SERVICE_LIFETIME_MISMATCH = new(
+			id: SERVICE_LIFETIME_MISMATCH_ID,
+			title: "Service with longer lifetime cannot depend on service with shorter lifetime",
+			messageFormat: "{0} service '{1}' cannot depend on {2} service '{3}'",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "A service with a longer lifetime (Singleton > Scoped > Transient) cannot depend on a service with a shorter lifetime.");
+
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -366,7 +386,9 @@ namespace RG.CodeAnalyzer {
 			ARGUMENT_MUST_BE_LOCKED,
 			DO_NOT_USE_DYNAMIC_TYPE,
 			STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX,
-			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT
+			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT,
+			SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
+			SERVICE_LIFETIME_MISMATCH
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -451,6 +473,9 @@ namespace RG.CodeAnalyzer {
 
 			// STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
 			context.RegisterSyntaxNodeAction(AnalyzeClassDeclarations, SyntaxKind.ClassDeclaration);
+
+			// SERVICE_LIFETIME_MISMATCH
+			context.RegisterSymbolAction(AnalyzeServiceLifetimes, SymbolKind.NamedType);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -888,7 +913,39 @@ namespace RG.CodeAnalyzer {
 		private static void AnalyzeInvocations(SyntaxNodeAnalysisContext context) {
 			try {
 				if (context.Node is InvocationExpressionSyntax { Expression: { } expression, ArgumentList: { Arguments: { } invocationArguments } } invocationExpressionSyntax) {
-					if (expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: { ValueText: nameof(Convert) } }, Name: IdentifierNameSyntax methodName }) {
+					if (expression is MemberAccessExpressionSyntax { Name: { Identifier: { ValueText: var diMethodName } } } diMemberAccess
+						&& (diMethodName is "AddSingleton" or "AddScoped" or "AddTransient")) {
+						IMethodSymbol? methodSymbol = context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol as IMethodSymbol;
+						if (methodSymbol is not null) {
+							string requiredAttribute = diMethodName switch {
+								"AddSingleton" => "Singleton",
+								"AddScoped" => "Scoped",
+								"AddTransient" => "Transient",
+								_ => ""
+							};
+							ITypeSymbol? serviceType = null;
+							if (methodSymbol.TypeArguments.Length > 0) {
+								serviceType = methodSymbol.TypeArguments[0];
+							} else if (invocationArguments.Count > 0
+								&& invocationArguments[0].Expression is TypeOfExpressionSyntax typeOfExpression
+								&& context.SemanticModel.GetTypeInfo(typeOfExpression.Type, context.CancellationToken).Type is ITypeSymbol typeArg) {
+								serviceType = typeArg;
+							}
+							if (serviceType is INamedTypeSymbol namedServiceType) {
+								string? actualLifetime = GetServiceLifetime(namedServiceType);
+								if (actualLifetime is null || actualLifetime != requiredAttribute) {
+									Diagnostic diagnostic = Diagnostic.Create(
+										SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
+										invocationExpressionSyntax.GetLocation(),
+										namedServiceType.Name,
+										diMethodName,
+										requiredAttribute
+									);
+									context.ReportDiagnostic(diagnostic);
+								}
+							}
+						}
+					} else if (expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: { ValueText: nameof(Convert) } }, Name: IdentifierNameSyntax methodName }) {
 						if (context.SemanticModel.GetTypeInfo(invocationArguments[0].Expression, context.CancellationToken) is { Type: INamedTypeSymbol argumentTypeSymbol }
 							&& argumentTypeSymbol.ToString() == "string") {
 							string? typeName = methodName.Identifier.ValueText switch {
@@ -1561,6 +1618,97 @@ namespace RG.CodeAnalyzer {
 		internal static string ToPascalCase(string camelCaseIdentifierName) {
 			if (!IsInCamelCase(camelCaseIdentifierName)) throw new ArgumentException("Identifier name is not in camel case.", nameof(camelCaseIdentifierName));
 			return $"{char.ToUpper(camelCaseIdentifierName[0], CultureInfo.InvariantCulture)}{camelCaseIdentifierName.Substring(1)}";
+		}
+
+		private static void AnalyzeServiceLifetimes(SymbolAnalysisContext context) {
+			try {
+				if (context.Symbol is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Interface } typeSymbol) {
+					string? serviceLifetime = GetServiceLifetime(typeSymbol);
+					if (serviceLifetime is null) return;
+
+					foreach (ISymbol member in typeSymbol.GetMembers()) {
+						if (member is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor) {
+							foreach (IParameterSymbol parameter in constructor.Parameters) {
+								if (parameter.Type is INamedTypeSymbol parameterType) {
+									string? parameterLifetime = GetServiceLifetime(parameterType);
+									if (parameterLifetime is not null && IsLifetimeMismatch(serviceLifetime, parameterLifetime)) {
+										foreach (SyntaxReference reference in constructor.DeclaringSyntaxReferences) {
+											if (reference.GetSyntax() is ConstructorDeclarationSyntax constructorSyntax) {
+												Diagnostic diagnostic = Diagnostic.Create(
+													SERVICE_LIFETIME_MISMATCH,
+													constructorSyntax.GetLocation(),
+													serviceLifetime,
+													typeSymbol.Name,
+													parameterLifetime,
+													parameterType.Name
+												);
+												context.ReportDiagnostic(diagnostic);
+											}
+										}
+									}
+								}
+							}
+						} else if (member is IPropertySymbol { Type: INamedTypeSymbol propertyType } property) {
+							string? propertyLifetime = GetServiceLifetime(propertyType);
+							if (propertyLifetime is not null && IsLifetimeMismatch(serviceLifetime, propertyLifetime)) {
+								foreach (SyntaxReference reference in property.DeclaringSyntaxReferences) {
+									Diagnostic diagnostic = Diagnostic.Create(
+										SERVICE_LIFETIME_MISMATCH,
+										reference.GetSyntax().GetLocation(),
+										serviceLifetime,
+										typeSymbol.Name,
+										propertyLifetime,
+										propertyType.Name
+									);
+									context.ReportDiagnostic(diagnostic);
+								}
+							}
+						} else if (member is IFieldSymbol { Type: INamedTypeSymbol fieldType } field) {
+							string? fieldLifetime = GetServiceLifetime(fieldType);
+							if (fieldLifetime is not null && IsLifetimeMismatch(serviceLifetime, fieldLifetime)) {
+								foreach (SyntaxReference reference in field.DeclaringSyntaxReferences) {
+									Diagnostic diagnostic = Diagnostic.Create(
+										SERVICE_LIFETIME_MISMATCH,
+										reference.GetSyntax().GetLocation(),
+										serviceLifetime,
+										typeSymbol.Name,
+										fieldLifetime,
+										fieldType.Name
+									);
+									context.ReportDiagnostic(diagnostic);
+								}
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static string? GetServiceLifetime(INamedTypeSymbol typeSymbol) {
+			foreach (AttributeData attribute in typeSymbol.GetAttributes()) {
+				string? attributeName = attribute.AttributeClass?.Name;
+				if (attributeName is "SingletonAttribute" or "Singleton") return "Singleton";
+				if (attributeName is "ScopedAttribute" or "Scoped") return "Scoped";
+				if (attributeName is "TransientAttribute" or "Transient") return "Transient";
+			}
+			return null;
+		}
+
+		private static bool IsLifetimeMismatch(string consumerLifetime, string dependencyLifetime) {
+			int consumerRank = GetLifetimeRank(consumerLifetime);
+			int dependencyRank = GetLifetimeRank(dependencyLifetime);
+			return consumerRank > dependencyRank;
+		}
+
+		private static int GetLifetimeRank(string lifetime) {
+			return lifetime switch {
+				"Singleton" => 3,
+				"Scoped" => 2,
+				"Transient" => 1,
+				_ => 0
+			};
 		}
 		#endregion
 	}
