@@ -43,8 +43,6 @@ namespace RG.CodeAnalyzer {
 		public const string PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED_ID = "RG0029";
 		public const string ARGUMENT_MUST_BE_LOCKED_ID = "RG0030";
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
-	public const string OUTDATED_GETHASHCODE_IMPLEMENTATION_ID = "RG0032";
-	public const string OUTDATED_EQUALS_IMPLEMENTATION_ID = "RG0033";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -316,24 +314,6 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Do not use dynamic type.");
 
-private static readonly DiagnosticDescriptor OUTDATED_GETHASHCODE_IMPLEMENTATION = new(
-id: OUTDATED_GETHASHCODE_IMPLEMENTATION_ID,
-title: "GetHashCode implementation is outdated",
-messageFormat: "GetHashCode implementation uses outdated pattern; Consider using HashCode.Combine instead",
-category: "Maintainability",
-defaultSeverity: DiagnosticSeverity.Warning,
-isEnabledByDefault: true,
-description: "GetHashCode implementation uses outdated patterns such as XOR, manual multiplication, or Tuple.Create. Use HashCode.Combine instead.");
-
-private static readonly DiagnosticDescriptor OUTDATED_EQUALS_IMPLEMENTATION = new(
-id: OUTDATED_EQUALS_IMPLEMENTATION_ID,
-title: "Equals implementation is outdated",
-messageFormat: "Equals implementation uses outdated pattern; {0}",
-category: "Reliability",
-defaultSeverity: DiagnosticSeverity.Warning,
-isEnabledByDefault: true,
-description: "Equals implementation uses outdated patterns such as direct casting without null/type checks.");
-
 		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -364,9 +344,7 @@ description: "Equals implementation uses outdated patterns such as direct castin
 			PROTOBUF_MESSAGE_PROPERTIES_ARE_REQUIRED,
 			PROTOBUF_MESSAGE_ONEOF_PROPERTY_ALREADY_INITIALIZED,
 			ARGUMENT_MUST_BE_LOCKED,
-			DO_NOT_USE_DYNAMIC_TYPE,
-			OUTDATED_GETHASHCODE_IMPLEMENTATION,
-			OUTDATED_EQUALS_IMPLEMENTATION
+			DO_NOT_USE_DYNAMIC_TYPE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -447,9 +425,6 @@ description: "Equals implementation uses outdated patterns such as direct castin
 
 			// DO_NOT_USE_DYNAMIC_TYPE
 			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
-			// OUTDATED_GETHASHCODE_IMPLEMENTATION
-			// OUTDATED_EQUALS_IMPLEMENTATION
-			context.RegisterSyntaxNodeAction(AnalyzeMethodDeclarations, SyntaxKind.MethodDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1167,157 +1142,6 @@ description: "Equals implementation uses outdated patterns such as direct castin
 				context.ReportDiagnostic(diagnostic);
 			}
 		}
-
-
-private static void AnalyzeMethodDeclarations(SyntaxNodeAnalysisContext context) {
-if (context.Node is not MethodDeclarationSyntax methodDeclaration) return;
-
-// Check for GetHashCode override
-if (methodDeclaration.Identifier.Text == "GetHashCode" 
-&& methodDeclaration.ParameterList.Parameters.Count == 0
-&& methodDeclaration.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
-
-AnalyzeGetHashCodeMethod(context, methodDeclaration);
-}
-
-// Check for Equals override
-if (methodDeclaration.Identifier.Text == "Equals"
-&& methodDeclaration.ParameterList.Parameters.Count == 1
-&& methodDeclaration.Modifiers.Any(SyntaxKind.OverrideKeyword)) {
-
-AnalyzeEqualsMethod(context, methodDeclaration);
-}
-}
-
-private static void AnalyzeGetHashCodeMethod(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax methodDeclaration) {
-if (methodDeclaration.Body == null && methodDeclaration.ExpressionBody == null) return;
-
-// Get all descendants to analyze
-var descendants = methodDeclaration.Body?.DescendantNodes() 
-?? methodDeclaration.ExpressionBody?.DescendantNodes() 
-?? Enumerable.Empty<SyntaxNode>();
-
-// Check for XOR pattern: field1.GetHashCode() ^ field2.GetHashCode()
-bool hasXorPattern = descendants.OfType<BinaryExpressionSyntax>()
-.Any(binary => binary.IsKind(SyntaxKind.ExclusiveOrExpression) 
-&& IsGetHashCodeInvocation(binary.Left) 
-&& IsGetHashCodeInvocation(binary.Right));
-
-// Check for multiplication pattern: hash * 23 + field.GetHashCode()
-bool hasMultiplicationPattern = descendants.OfType<BinaryExpressionSyntax>()
-.Any(binary => binary.IsKind(SyntaxKind.MultiplyExpression) 
-&& (IsNumericLiteral(binary.Left) || IsNumericLiteral(binary.Right)));
-
-// Check for Tuple.Create pattern
-bool hasTupleCreatePattern = descendants.OfType<InvocationExpressionSyntax>()
-.Any(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess
-&& memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Tuple" }
-&& memberAccess.Name.Identifier.Text == "Create");
-
-if (hasXorPattern || hasMultiplicationPattern || hasTupleCreatePattern) {
-Diagnostic diagnostic = Diagnostic.Create(
-OUTDATED_GETHASHCODE_IMPLEMENTATION, 
-methodDeclaration.Identifier.GetLocation());
-context.ReportDiagnostic(diagnostic);
-}
-}
-
-private static void AnalyzeEqualsMethod(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax methodDeclaration) {
-if (methodDeclaration.Body == null && methodDeclaration.ExpressionBody == null) return;
-
-var descendants = methodDeclaration.Body?.DescendantNodes() 
-?? methodDeclaration.ExpressionBody?.DescendantNodes() 
-?? Enumerable.Empty<SyntaxNode>();
-
-// Check for direct cast pattern without null check: (MyClass)obj
-var castExpressions = descendants.OfType<CastExpressionSyntax>().ToList();
-if (castExpressions.Any()) {
-// Check if there's a proper null/type check before the cast
-bool hasCastWithoutNullCheck = false;
-
-foreach (var cast in castExpressions) {
-// Look for the parameter being cast
-if (cast.Expression is IdentifierNameSyntax identifier) {
-// Check if there's a null check or type check in the method
-bool hasNullCheck = descendants.OfType<BinaryExpressionSyntax>()
-.Any(binary => (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression))
-&& (IsNullLiteral(binary.Left) || IsNullLiteral(binary.Right)));
-
-bool hasIsCheck = descendants.OfType<BinaryExpressionSyntax>()
-.Any(binary => binary.IsKind(SyntaxKind.IsExpression));
-
-if (!hasNullCheck && !hasIsCheck) {
-hasCastWithoutNullCheck = true;
-break;
-}
-}
-}
-
-if (hasCastWithoutNullCheck) {
-Diagnostic diagnostic = Diagnostic.Create(
-OUTDATED_EQUALS_IMPLEMENTATION,
-methodDeclaration.Identifier.GetLocation(),
-"Consider using 'is' pattern matching with null/type checks");
-context.ReportDiagnostic(diagnostic);
-return;
-}
-}
-
-// Check for 'as' cast without null check
-var asExpressions = descendants.OfType<BinaryExpressionSyntax>()
-.Where(binary => binary.IsKind(SyntaxKind.AsExpression))
-.ToList();
-
-if (asExpressions.Any()) {
-// Check if the result of 'as' is checked for null before use
-foreach (var asExpr in asExpressions) {
-// Look for variable declaration with 'as'
-var parent = asExpr.Parent;
-while (parent != null && parent is not StatementSyntax) {
-parent = parent.Parent;
-}
-
-// Check if there's a null check immediately after
-bool hasNullCheckAfterAs = false;
-if (parent?.Parent is BlockSyntax block) {
-var statements = block.Statements;
-int index = statements.IndexOf((StatementSyntax)parent);
-if (index >= 0 && index < statements.Count - 1) {
-var nextStatement = statements[index + 1];
-hasNullCheckAfterAs = nextStatement.DescendantNodes()
-.OfType<BinaryExpressionSyntax>()
-.Any(binary => (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression))
-&& (IsNullLiteral(binary.Left) || IsNullLiteral(binary.Right)));
-}
-}
-
-if (!hasNullCheckAfterAs) {
-Diagnostic diagnostic = Diagnostic.Create(
-OUTDATED_EQUALS_IMPLEMENTATION,
-methodDeclaration.Identifier.GetLocation(),
-"'as' cast without proper null check; Consider using 'is' pattern matching");
-context.ReportDiagnostic(diagnostic);
-return;
-}
-}
-}
-}
-
-private static bool IsGetHashCodeInvocation(SyntaxNode node) {
-return node is InvocationExpressionSyntax invocation
-&& invocation.Expression is MemberAccessExpressionSyntax memberAccess
-&& memberAccess.Name.Identifier.Text == "GetHashCode";
-}
-
-private static bool IsNumericLiteral(SyntaxNode node) {
-return node is LiteralExpressionSyntax literal
-&& literal.IsKind(SyntaxKind.NumericLiteralExpression);
-}
-
-private static bool IsNullLiteral(SyntaxNode node) {
-return node is LiteralExpressionSyntax literal
-&& literal.IsKind(SyntaxKind.NullLiteralExpression);
-}
 
 		#region Helpers
 		private static bool IsInternalNamespace(INamespaceSymbol @namespace, out string fullNamespace) {
