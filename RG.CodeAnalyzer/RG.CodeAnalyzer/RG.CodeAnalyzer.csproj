@@ -6,6 +6,8 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
+    <!-- Suppress release tracking warnings during analyzer project build -->
+    <NoWarn>$(NoWarn);RS2002;RS2003</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
