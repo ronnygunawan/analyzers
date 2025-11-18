@@ -63,27 +63,25 @@ namespace RG.CodeAnalyzer {
 			Document? typeDocument = context.Document.Project.GetDocument(syntaxRef.SyntaxTree);
 			if (typeDocument is null) return;
 
-			SyntaxNode? typeDeclarationNode = await syntaxRef.GetSyntaxAsync(context.CancellationToken).ConfigureAwait(false);
-			if (typeDeclarationNode is not ClassDeclarationSyntax classDecl) return;
-
 			context.RegisterCodeFix(
 				CodeAction.Create(
 					title: MAKE_CLASS_INTERNAL_TITLE,
-					createChangedDocument: c => MakeClassInternalAsync(typeDocument, classDecl, c),
+					createChangedDocument: c => MakeClassInternalAsync(typeDocument, namedType, c),
 					equivalenceKey: MAKE_CLASS_INTERNAL_TITLE),
 				diagnostic: diagnostic);
 		}
 
-		private static async Task<Document> MakeClassInternalAsync(Document document, ClassDeclarationSyntax classDecl, CancellationToken cancellationToken) {
+		private static async Task<Document> MakeClassInternalAsync(Document document, INamedTypeSymbol classSymbol, CancellationToken cancellationToken) {
 			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
 			if (root is null) return document;
 
-			// Find the class declaration in this document's syntax tree
-			ClassDeclarationSyntax? actualClassDecl = root.DescendantNodes()
-				.OfType<ClassDeclarationSyntax>()
-				.FirstOrDefault(c => c.Identifier.Text == classDecl.Identifier.Text);
+			// Get the class declaration from the symbol
+			SyntaxReference? syntaxRef = classSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+			if (syntaxRef is null) return document;
 
-			if (actualClassDecl is null) return document;
+			// Find the node in the current document's tree by location
+			SyntaxNode? classNode = root.FindNode(syntaxRef.Span);
+			if (classNode is not ClassDeclarationSyntax actualClassDecl) return document;
 
 			SyntaxTriviaList leadingTrivia = actualClassDecl.GetLeadingTrivia();
 
@@ -94,8 +92,13 @@ namespace RG.CodeAnalyzer {
 				_ => true
 			}));
 
-			if (!newModifiers.Any(m => m.Kind() == SyntaxKind.InternalKeyword)) {
-				newModifiers = newModifiers.Add(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+			if (!newModifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword))) {
+				// Get the trivia from the public keyword if it exists, otherwise use default
+				SyntaxToken? publicToken = actualClassDecl.Modifiers.FirstOrDefault(m => m.IsKind(SyntaxKind.PublicKeyword));
+				SyntaxToken internalToken = publicToken.HasValue 
+					? SyntaxFactory.Token(publicToken.Value.LeadingTrivia, SyntaxKind.InternalKeyword, publicToken.Value.TrailingTrivia)
+					: SyntaxFactory.Token(SyntaxKind.InternalKeyword);
+				newModifiers = newModifiers.Insert(0, internalToken);
 			}
 
 			ClassDeclarationSyntax newClassDecl = actualClassDecl
