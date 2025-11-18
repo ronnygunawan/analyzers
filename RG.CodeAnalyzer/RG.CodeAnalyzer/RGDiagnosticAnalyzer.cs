@@ -45,7 +45,7 @@ namespace RG.CodeAnalyzer {
 		public const string DO_NOT_USE_DYNAMIC_TYPE_ID = "RG0031";
 		public const string STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX_ID = "RG0032";
 		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID = "RG0033";
-		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0034";
+		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0036";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
