@@ -458,3 +458,49 @@ namespace MyApp {
 ```
 
 This rule also applies to property and field dependencies.
+
+### 36. DI implementation classes should be internal
+Classes registered with dependency injection should be internal to hide implementation details. The interface can remain public.
+
+```cs
+using Microsoft.Extensions.DependencyInjection;
+using RG.Annotations;
+
+namespace MyApp {
+    public interface IMyService {
+    }
+    
+    [Transient]
+    public class MyService : IMyService { // RG0036: Class 'MyService' is registered with DI and should be internal
+    }
+    
+    class Startup {
+        void ConfigureServices(IServiceCollection services) {
+            services.AddTransient<IMyService, MyService>();
+        }
+    }
+}
+```
+
+Correct usage:
+```cs
+using Microsoft.Extensions.DependencyInjection;
+using RG.Annotations;
+
+namespace MyApp {
+    public interface IMyService {
+    }
+    
+    [Transient]
+    internal class MyService : IMyService { // OK
+    }
+    
+    class Startup {
+        void ConfigureServices(IServiceCollection services) {
+            services.AddTransient<IMyService, MyService>();
+        }
+    }
+}
+```
+
+Code fix: Make the implementation class internal
