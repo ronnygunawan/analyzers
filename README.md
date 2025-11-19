@@ -263,7 +263,21 @@ Foo foo = new() { // RG0019: 'Z' is a required property and should be initialize
 };
 ```
 
-### 20. (Reserved for [#43](/../../issues/43))
+### 20. Value type record property should be initialized
+```cs
+record Foo {
+    public int X { get; init; }
+    public int Y { get; init; } = 0;
+}
+
+var foo = new Foo(); // RG0020: 'X' is a value type property without initializer and should be initialized
+```
+
+Value type properties without default initializers should be initialized when creating a new instance of a record. This helps prevent unintentional use of default values (like 0 for int) when a specific value was expected. Properties with initializers (like `Y { get; init; } = 0`) are not reported because they have an explicit default value.
+
+Nullable value types (`int?`, `decimal?`, etc.) are excluded from this rule since they have a clear default value of `null`.
+
+Records marked with the `[Mutable]` attribute (from RG.Annotations) are excluded from this check.
 
 ### 21. Local is readonly
 Put an `@` prefix to local name to mark it as a readonly local

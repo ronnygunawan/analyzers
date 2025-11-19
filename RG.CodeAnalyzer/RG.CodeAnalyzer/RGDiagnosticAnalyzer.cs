@@ -221,6 +221,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Required record property should be initialized.");
 
+		private static readonly DiagnosticDescriptor VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED = new(
+			id: VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED_ID,
+			title: "Value type record property should be initialized",
+			messageFormat: "'{0}' is a value type property without initializer and should be initialized",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Value type record property should be initialized.");
+
 		private static readonly DiagnosticDescriptor LOCAL_IS_READONLY = new(
 			id: LOCAL_IS_READONLY_ID,
 			title: "Local variable is readonly",
@@ -394,6 +403,7 @@ namespace RG.CodeAnalyzer {
 			RECORDS_SHOULD_NOT_CONTAIN_MUTABLE_COLLECTION,
 			RECORDS_SHOULD_NOT_CONTAIN_REFERENCE_TO_CLASS_OR_STRUCT_TYPE,
 			REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED,
+			VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED,
 			LOCAL_IS_READONLY,
 			PARAMETER_IS_READONLY,
 			REF_OR_OUT_PARAMETER_CANNOT_BE_READONLY,
@@ -1274,7 +1284,8 @@ namespace RG.CodeAnalyzer {
 					if (parent is BaseObjectCreationExpressionSyntax objectCreation
 						&& context.SemanticModel.GetTypeInfo(objectCreation, context.CancellationToken).Type is ITypeSymbol type
 						&& type.DeclaringSyntaxReferences.Length > 0
-						&& type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers } recordDeclaration) {
+						&& type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers, AttributeLists: var recordAttributeLists } recordDeclaration) {
+						bool isMutableRecord = recordAttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "Mutable" or "RG.Annotations.Mutable"));
 						foreach (MemberDeclarationSyntax memberDeclaration in recordMembers) {
 							switch (memberDeclaration) {
 								case PropertyDeclarationSyntax propertyDeclaration: {
@@ -1300,6 +1311,18 @@ namespace RG.CodeAnalyzer {
 												Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), propertyDeclaration.Identifier.ValueText);
 												context.ReportDiagnostic(diagnostic);
 											}
+										} else if (!isMutableRecord
+											&& type is INamedTypeSymbol namedTypeSymbol
+											&& namedTypeSymbol.GetMembers(propertyDeclaration.Identifier.ValueText).FirstOrDefault() is IPropertySymbol propertySymbol
+											&& propertySymbol.Type.IsValueType
+											&& propertySymbol.Type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+											&& propertyDeclaration.Initializer is null
+											&& !initializerExpressions.Any(initializerExpression => {
+												return initializerExpression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier: { ValueText: var initializedMemberName } } }
+													&& initializedMemberName == propertyDeclaration.Identifier.ValueText;
+											})) {
+											Diagnostic diagnostic = Diagnostic.Create(VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, initializer.GetLocation(), propertyDeclaration.Identifier.ValueText);
+											context.ReportDiagnostic(diagnostic);
 										}
 										break;
 									}
@@ -1316,8 +1339,9 @@ namespace RG.CodeAnalyzer {
 			if (context.Node is BaseObjectCreationExpressionSyntax objectCreationExpressionSyntax
 				&& context.SemanticModel.GetTypeInfo(objectCreationExpressionSyntax, context.CancellationToken).Type is INamedTypeSymbol namedTypeSymbol) {
 				if (namedTypeSymbol is { DeclaringSyntaxReferences: { Length: > 0 } declaringSyntaxReferences }
-					&& declaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers } recordDeclarationSyntax
+					&& declaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is RecordDeclarationSyntax { Members: var recordMembers, AttributeLists: var recordAttributeLists } recordDeclarationSyntax
 					&& objectCreationExpressionSyntax.Initializer is null) {
+					bool isMutableRecord = recordAttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "Mutable" or "RG.Annotations.Mutable"));
 					foreach (MemberDeclarationSyntax memberDeclaration in recordMembers) {
 						switch (memberDeclaration) {
 							case PropertyDeclarationSyntax propertyDeclarationSyntax: {
@@ -1334,6 +1358,13 @@ namespace RG.CodeAnalyzer {
 											Diagnostic diagnostic = Diagnostic.Create(REQUIRED_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, objectCreationExpressionSyntax.GetLocation(), propertyDeclarationSyntax.Identifier.ValueText);
 											context.ReportDiagnostic(diagnostic);
 										}
+									} else if (!isMutableRecord
+										&& namedTypeSymbol.GetMembers(propertyDeclarationSyntax.Identifier.ValueText).FirstOrDefault() is IPropertySymbol propertySymbol
+										&& propertySymbol.Type.IsValueType
+										&& propertySymbol.Type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+										&& propertyDeclarationSyntax.Initializer is null) {
+										Diagnostic diagnostic = Diagnostic.Create(VALUE_TYPE_RECORD_PROPERTY_SHOULD_BE_INITIALIZED, objectCreationExpressionSyntax.GetLocation(), propertyDeclarationSyntax.Identifier.ValueText);
+										context.ReportDiagnostic(diagnostic);
 									}
 									break;
 								}
