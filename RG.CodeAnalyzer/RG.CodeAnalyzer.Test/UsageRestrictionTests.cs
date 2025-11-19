@@ -93,7 +93,7 @@ namespace Bar {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 14, 11)
+						new DiagnosticResultLocation("Test0.cs", 14, 12)
 					}
 			};
 
@@ -199,7 +199,7 @@ namespace Bar {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 12, 11)
+						new DiagnosticResultLocation("Test0.cs", 12, 12)
 					}
 			};
 
@@ -233,7 +233,7 @@ namespace Bar {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 14, 15)
+						new DiagnosticResultLocation("Test0.cs", 14, 16)
 					}
 			};
 
@@ -267,7 +267,7 @@ namespace Bar {
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 14, 15)
+						new DiagnosticResultLocation("Test0.cs", 14, 16)
 					}
 			};
 
@@ -297,11 +297,11 @@ namespace Bar {
 
 			DiagnosticResult expected = new() {
 				Id = "RG0037",
-				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
+				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "DoSomething", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
 					new[] {
-						new DiagnosticResultLocation("Test0.cs", 14, 4)
+						new DiagnosticResultLocation("Test0.cs", 14, 8)
 					}
 			};
 

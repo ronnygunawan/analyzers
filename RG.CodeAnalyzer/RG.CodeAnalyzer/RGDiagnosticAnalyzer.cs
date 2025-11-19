@@ -1453,20 +1453,96 @@ namespace RG.CodeAnalyzer {
 						return;
 					}
 
-					ISymbol? symbol = context.SemanticModel.GetSymbolInfo(identifierName, context.CancellationToken).Symbol;
-					
-					// Debug
-					if (identifierName.Identifier.Text == "Foo") {
-						throw new Exception($"DEBUG: Foo symbol is {(symbol == null ? "null" : "not null")}. Symbol type: {symbol?.GetType().Name}");
-					}
-
-					if (symbol is not null) {
-						CheckRestrictedUsage(context, identifierName.GetLocation(), symbol);
-					}
+					// Check for usage restrictions by looking at the syntax tree
+					CheckIdentifierForRestriction(context, identifierName);
 				}
 			} catch (Exception exc) {
 				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
+		}
+
+		private static void CheckIdentifierForRestriction(SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifierName) {
+			string typeName = identifierName.Identifier.Text;
+			
+			// Find the current namespace
+			string currentNamespace = GetNamespaceFromSyntax(identifierName);
+			
+			// Search the syntax tree for declarations with this name that have RestrictTo attributes
+			var root = context.Node.SyntaxTree.GetRoot(context.CancellationToken);
+			var restrictions = FindRestrictionsInTree(root, typeName);
+			
+			foreach (var (restrictedNamespace, location) in restrictions) {
+				if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+					Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, identifierName.GetLocation(), typeName, restrictedNamespace);
+					context.ReportDiagnostic(diagnostic);
+					break; // Only report once per identifier
+				}
+			}
+		}
+
+		private static List<(string restrictedNamespace, Location declarationLocation)> FindRestrictionsInTree(SyntaxNode root, string typeName) {
+			var restrictions = new List<(string, Location)>();
+			
+			// Find all type and member declarations with the matching name
+			var declarations = root.DescendantNodes().Where(node => {
+				string? declName = node switch {
+					ClassDeclarationSyntax c => c.Identifier.Text,
+					StructDeclarationSyntax s => s.Identifier.Text,
+					RecordDeclarationSyntax r => r.Identifier.Text,
+					InterfaceDeclarationSyntax i => i.Identifier.Text,
+					EnumDeclarationSyntax e => e.Identifier.Text,
+					DelegateDeclarationSyntax d => d.Identifier.Text,
+					PropertyDeclarationSyntax p => p.Identifier.Text,
+					MethodDeclarationSyntax m => m.Identifier.Text,
+					FieldDeclarationSyntax f => f.Declaration.Variables.FirstOrDefault()?.Identifier.Text,
+					EventDeclarationSyntax ev => ev.Identifier.Text,
+					_ => null
+				};
+				return declName == typeName;
+			});
+			
+			foreach (var decl in declarations) {
+				var attributeLists = GetAttributeLists(decl);
+				if (attributeLists != null) {
+					foreach (var attributeList in attributeLists) {
+						foreach (var attribute in attributeList.Attributes) {
+							string attributeName = attribute.Name.ToString();
+							if (attributeName == "RestrictTo" || attributeName == "RestrictToAttribute") {
+								string? restrictedNamespace = ExtractNamespaceFromAttribute(attribute);
+								if (restrictedNamespace != null) {
+									restrictions.Add((restrictedNamespace, decl.GetLocation()));
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			return restrictions;
+		}
+
+		private static SyntaxList<AttributeListSyntax>? GetAttributeLists(SyntaxNode node) {
+			return node switch {
+				ClassDeclarationSyntax c => c.AttributeLists,
+				StructDeclarationSyntax s => s.AttributeLists,
+				RecordDeclarationSyntax r => r.AttributeLists,
+				InterfaceDeclarationSyntax i => i.AttributeLists,
+				EnumDeclarationSyntax e => e.AttributeLists,
+				DelegateDeclarationSyntax d => d.AttributeLists,
+				PropertyDeclarationSyntax p => p.AttributeLists,
+				MethodDeclarationSyntax m => m.AttributeLists,
+				FieldDeclarationSyntax f => f.AttributeLists,
+				EventDeclarationSyntax ev => ev.AttributeLists,
+				_ => null
+			};
+		}
+
+		private static string GetNamespaceFromSyntax(SyntaxNode node) {
+			var namespaceDecl = node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault();
+			if (namespaceDecl != null) {
+				return namespaceDecl.Name.ToString();
+			}
+			return string.Empty;
 		}
 
 		private static void AnalyzeTypeDeclarations(SyntaxNodeAnalysisContext context) {
@@ -1481,8 +1557,29 @@ namespace RG.CodeAnalyzer {
 
 				if (baseList is not null) {
 					foreach (var baseType in baseList.Types) {
-						if (context.SemanticModel.GetSymbolInfo(baseType.Type, context.CancellationToken).Symbol is ITypeSymbol typeSymbol) {
-							CheckRestrictedUsage(context, baseType.Type.GetLocation(), typeSymbol);
+						// Extract the type name from the syntax
+						string? typeName = baseType.Type switch {
+							IdentifierNameSyntax identifierName => identifierName.Identifier.Text,
+							QualifiedNameSyntax qualifiedName => qualifiedName.Right.Identifier.Text,
+							GenericNameSyntax genericName => genericName.Identifier.Text,
+							_ => null
+						};
+
+						if (typeName != null) {
+							// Find the current namespace
+							string currentNamespace = GetNamespaceFromSyntax(baseType);
+							
+							// Search for restrictions
+							var root = context.Node.SyntaxTree.GetRoot(context.CancellationToken);
+							var restrictions = FindRestrictionsInTree(root, typeName);
+							
+							foreach (var (restrictedNamespace, location) in restrictions) {
+								if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+									Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, baseType.Type.GetLocation(), typeName, restrictedNamespace);
+									context.ReportDiagnostic(diagnostic);
+									break;
+								}
+							}
 						}
 					}
 				}
@@ -1802,77 +1899,6 @@ namespace RG.CodeAnalyzer {
 			};
 		}
 
-		private static void CheckRestrictedUsage(SyntaxNodeAnalysisContext context, Location location, ISymbol symbol) {
-			// Check the symbol itself first (could be a type, property, field, method, etc.)
-			CheckSymbolRestriction(context, location, symbol);
-			
-			// If it's a member, also check the containing type's restriction
-			if (symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType is not null) {
-				CheckSymbolRestriction(context, location, methodSymbol.ContainingType);
-			} else if (symbol is IPropertySymbol propertySymbol && propertySymbol.ContainingType is not null) {
-				CheckSymbolRestriction(context, location, propertySymbol.ContainingType);
-			} else if (symbol is IFieldSymbol fieldSymbol && fieldSymbol.ContainingType is not null) {
-				CheckSymbolRestriction(context, location, fieldSymbol.ContainingType);
-			} else if (symbol is IEventSymbol eventSymbol && eventSymbol.ContainingType is not null) {
-				CheckSymbolRestriction(context, location, eventSymbol.ContainingType);
-			}
-		}
-
-		private static void CheckSymbolRestriction(SyntaxNodeAnalysisContext context, Location location, ISymbol targetSymbol) {
-			// Debug
-			if (targetSymbol.Name == "Foo") {
-				throw new Exception($"DEBUG: Checking Foo, DeclaringSyntaxReferences.Length = {targetSymbol.DeclaringSyntaxReferences.Length}");
-			}
-
-			// Get the syntax references for the symbol to check for attributes in AST
-			if (targetSymbol.DeclaringSyntaxReferences.Length == 0) {
-				// No syntax available, symbol might be from metadata
-				return;
-			}
-
-			foreach (var syntaxRef in targetSymbol.DeclaringSyntaxReferences) {
-				var syntax = syntaxRef.GetSyntax(context.CancellationToken);
-				
-				// Get attribute lists from the declaration
-				SyntaxList<AttributeListSyntax>? attributeLists = syntax switch {
-					ClassDeclarationSyntax classDecl => classDecl.AttributeLists,
-					StructDeclarationSyntax structDecl => structDecl.AttributeLists,
-					RecordDeclarationSyntax recordDecl => recordDecl.AttributeLists,
-					InterfaceDeclarationSyntax interfaceDecl => interfaceDecl.AttributeLists,
-					EnumDeclarationSyntax enumDecl => enumDecl.AttributeLists,
-					DelegateDeclarationSyntax delegateDecl => delegateDecl.AttributeLists,
-					PropertyDeclarationSyntax propertyDecl => propertyDecl.AttributeLists,
-					FieldDeclarationSyntax fieldDecl => fieldDecl.AttributeLists,
-					MethodDeclarationSyntax methodDecl => methodDecl.AttributeLists,
-					ConstructorDeclarationSyntax ctorDecl => ctorDecl.AttributeLists,
-					EventDeclarationSyntax eventDecl => eventDecl.AttributeLists,
-					EventFieldDeclarationSyntax eventFieldDecl => eventFieldDecl.AttributeLists,
-					_ => null
-				};
-
-				if (attributeLists is null || attributeLists.Value.Count == 0) continue;
-
-				foreach (var attributeList in attributeLists.Value) {
-					foreach (var attribute in attributeList.Attributes) {
-						// Check if this is a RestrictTo attribute by name
-						string attributeName = attribute.Name.ToString();
-						if (attributeName == "RestrictTo" || attributeName == "RestrictToAttribute") {
-							string? restrictedNamespace = ExtractNamespaceFromAttribute(attribute);
-							
-							if (restrictedNamespace is not null) {
-								string currentNamespace = GetFullNamespace(context.ContainingSymbol);
-								if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
-									string symbolName = targetSymbol.Name;
-									Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, location, symbolName, restrictedNamespace);
-									context.ReportDiagnostic(diagnostic);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
 		private static string? ExtractNamespaceFromAttribute(AttributeSyntax attribute) {
 			// Check for constructor argument: [RestrictTo("Namespace")]
 			if (attribute.ArgumentList?.Arguments.Count > 0) {
@@ -1895,20 +1921,6 @@ namespace RG.CodeAnalyzer {
 			}
 
 			return null;
-		}
-
-		private static string GetFullNamespace(ISymbol? symbol) {
-			if (symbol is null) return string.Empty;
-			
-			INamespaceSymbol? ns = symbol.ContainingNamespace;
-			if (ns is null || ns.IsGlobalNamespace) return string.Empty;
-
-			List<string> parts = new();
-			while (ns is not null && !ns.IsGlobalNamespace) {
-				parts.Insert(0, ns.Name);
-				ns = ns.ContainingNamespace;
-			}
-			return string.Join(".", parts);
 		}
 
 		private static bool IsInNamespace(string currentNamespace, string restrictedNamespace) {
