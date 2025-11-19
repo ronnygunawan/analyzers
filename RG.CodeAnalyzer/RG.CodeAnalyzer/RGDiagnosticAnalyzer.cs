@@ -47,7 +47,8 @@ namespace RG.CodeAnalyzer {
 		public const string USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT_ID = "RG0033";
 		public const string SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE_ID = "RG0034";
 		public const string SERVICE_LIFETIME_MISMATCH_ID = "RG0035";
-		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0036";
+		public const string DI_IMPLEMENTATION_MUST_BE_INTERNAL_ID = "RG0036";
+		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0037";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -355,6 +356,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "A service with a longer lifetime (Singleton > Scoped > Transient) cannot depend on a service with a shorter lifetime.");
 
+		private static readonly DiagnosticDescriptor DI_IMPLEMENTATION_MUST_BE_INTERNAL = new(
+			id: DI_IMPLEMENTATION_MUST_BE_INTERNAL_ID,
+			title: "DI implementation classes should be internal",
+			messageFormat: "Class '{0}' is registered with DI and should be internal",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "Classes registered with dependency injection should be internal to hide implementation details.");
+
 		private static readonly DiagnosticDescriptor USAGE_RESTRICTED_TO_NAMESPACE = new(
 			id: USAGE_RESTRICTED_TO_NAMESPACE_ID,
 			title: "Usage is restricted to a specific namespace",
@@ -364,7 +374,7 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Usage of symbol is restricted to a specific namespace.");
 
-public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
 			IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL,
@@ -399,6 +409,7 @@ public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get;
 			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT,
 			SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
 			SERVICE_LIFETIME_MISMATCH,
+			DI_IMPLEMENTATION_MUST_BE_INTERNAL,
 			USAGE_RESTRICTED_TO_NAMESPACE
 		);
 
@@ -939,12 +950,17 @@ public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get;
 								_ => ""
 							};
 							ITypeSymbol? serviceType = null;
+							ITypeSymbol? implementationType = null;
 							if (methodSymbol.TypeArguments.Length > 0) {
 								serviceType = methodSymbol.TypeArguments[0];
+								implementationType = methodSymbol.TypeArguments.Length > 1 
+									? methodSymbol.TypeArguments[1] 
+									: methodSymbol.TypeArguments[0];
 							} else if (invocationArguments.Count > 0
 								&& invocationArguments[0].Expression is TypeOfExpressionSyntax typeOfExpression
 								&& context.SemanticModel.GetTypeInfo(typeOfExpression.Type, context.CancellationToken).Type is ITypeSymbol typeArg) {
 								serviceType = typeArg;
+								implementationType = typeArg;
 							}
 							if (serviceType is INamedTypeSymbol namedServiceType) {
 								string? actualLifetime = GetServiceLifetime(namedServiceType);
@@ -958,6 +974,16 @@ public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get;
 									);
 									context.ReportDiagnostic(diagnostic);
 								}
+							}
+							if (implementationType is INamedTypeSymbol namedImplementationType
+								&& namedImplementationType.TypeKind == TypeKind.Class
+								&& namedImplementationType.DeclaredAccessibility == Accessibility.Public) {
+								Diagnostic diagnostic = Diagnostic.Create(
+									DI_IMPLEMENTATION_MUST_BE_INTERNAL,
+									invocationExpressionSyntax.GetLocation(),
+									namedImplementationType.Name
+								);
+								context.ReportDiagnostic(diagnostic);
 							}
 						}
 					} else if (expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax { Identifier: { ValueText: nameof(Convert) } }, Name: IdentifierNameSyntax methodName }) {
