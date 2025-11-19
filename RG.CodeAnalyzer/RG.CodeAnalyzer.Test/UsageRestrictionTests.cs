@@ -36,7 +36,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -88,7 +88,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -120,7 +120,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -152,7 +152,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -184,7 +184,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected1 = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -194,7 +194,7 @@ namespace Bar {
 			};
 
 			DiagnosticResult expected2 = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -228,7 +228,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Value", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -262,7 +262,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Value", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -296,7 +296,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -345,7 +345,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =
@@ -377,7 +377,7 @@ namespace Bar {
 ";
 
 			DiagnosticResult expected = new() {
-				Id = "RG0036",
+				Id = "RG0037",
 				Message = string.Format("Usage of '{0}' is only allowed in namespace '{1}'", "Foo", "Baz"),
 				Severity = DiagnosticSeverity.Error,
 				Locations =

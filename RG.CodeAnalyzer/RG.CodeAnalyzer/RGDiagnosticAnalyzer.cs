@@ -1448,7 +1448,18 @@ namespace RG.CodeAnalyzer {
 						return;
 					}
 
+					// Skip identifiers that are part of base type lists (already handled by AnalyzeTypeDeclarations)
+					if (identifierName.Ancestors().OfType<BaseTypeSyntax>().Any()) {
+						return;
+					}
+
 					ISymbol? symbol = context.SemanticModel.GetSymbolInfo(identifierName, context.CancellationToken).Symbol;
+					
+					// Debug
+					if (identifierName.Identifier.Text == "Foo") {
+						throw new Exception($"DEBUG: Foo symbol is {(symbol == null ? "null" : "not null")}. Symbol type: {symbol?.GetType().Name}");
+					}
+
 					if (symbol is not null) {
 						CheckRestrictedUsage(context, identifierName.GetLocation(), symbol);
 					}
@@ -1808,43 +1819,82 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void CheckSymbolRestriction(SyntaxNodeAnalysisContext context, Location location, ISymbol targetSymbol) {
-			foreach (AttributeData attribute in targetSymbol.GetAttributes()) {
-				if (attribute.AttributeClass?.Name == "RestrictToAttribute") {
-					string? restrictedNamespace = null;
-					
-					// Try named arguments first
-					foreach (var namedArg in attribute.NamedArguments) {
-						if (namedArg.Key == "Namespace" && namedArg.Value.Value is string ns) {
-							restrictedNamespace = ns;
-							break;
-						}
-					}
-					
-					// If not found in named arguments, try constructor arguments
-					if (restrictedNamespace is null && attribute.ConstructorArguments.Length > 0) {
-						if (attribute.ConstructorArguments[0].Value is string ns) {
-							restrictedNamespace = ns;
-						}
-					}
-					
-					// If still null, try to find Namespace property value
-					if (restrictedNamespace is null) {
-						var namespaceArg = attribute.NamedArguments.FirstOrDefault(arg => arg.Key == "Namespace");
-						if (namespaceArg.Value.Value is string ns) {
-							restrictedNamespace = ns;
-						}
-					}
+			// Debug
+			if (targetSymbol.Name == "Foo") {
+				throw new Exception($"DEBUG: Checking Foo, DeclaringSyntaxReferences.Length = {targetSymbol.DeclaringSyntaxReferences.Length}");
+			}
 
-					if (restrictedNamespace is not null) {
-						string currentNamespace = GetFullNamespace(context.ContainingSymbol);
-						if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
-							string symbolName = targetSymbol.Name;
-							Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, location, symbolName, restrictedNamespace);
-							context.ReportDiagnostic(diagnostic);
+			// Get the syntax references for the symbol to check for attributes in AST
+			if (targetSymbol.DeclaringSyntaxReferences.Length == 0) {
+				// No syntax available, symbol might be from metadata
+				return;
+			}
+
+			foreach (var syntaxRef in targetSymbol.DeclaringSyntaxReferences) {
+				var syntax = syntaxRef.GetSyntax(context.CancellationToken);
+				
+				// Get attribute lists from the declaration
+				SyntaxList<AttributeListSyntax>? attributeLists = syntax switch {
+					ClassDeclarationSyntax classDecl => classDecl.AttributeLists,
+					StructDeclarationSyntax structDecl => structDecl.AttributeLists,
+					RecordDeclarationSyntax recordDecl => recordDecl.AttributeLists,
+					InterfaceDeclarationSyntax interfaceDecl => interfaceDecl.AttributeLists,
+					EnumDeclarationSyntax enumDecl => enumDecl.AttributeLists,
+					DelegateDeclarationSyntax delegateDecl => delegateDecl.AttributeLists,
+					PropertyDeclarationSyntax propertyDecl => propertyDecl.AttributeLists,
+					FieldDeclarationSyntax fieldDecl => fieldDecl.AttributeLists,
+					MethodDeclarationSyntax methodDecl => methodDecl.AttributeLists,
+					ConstructorDeclarationSyntax ctorDecl => ctorDecl.AttributeLists,
+					EventDeclarationSyntax eventDecl => eventDecl.AttributeLists,
+					EventFieldDeclarationSyntax eventFieldDecl => eventFieldDecl.AttributeLists,
+					_ => null
+				};
+
+				if (attributeLists is null || attributeLists.Value.Count == 0) continue;
+
+				foreach (var attributeList in attributeLists.Value) {
+					foreach (var attribute in attributeList.Attributes) {
+						// Check if this is a RestrictTo attribute by name
+						string attributeName = attribute.Name.ToString();
+						if (attributeName == "RestrictTo" || attributeName == "RestrictToAttribute") {
+							string? restrictedNamespace = ExtractNamespaceFromAttribute(attribute);
+							
+							if (restrictedNamespace is not null) {
+								string currentNamespace = GetFullNamespace(context.ContainingSymbol);
+								if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+									string symbolName = targetSymbol.Name;
+									Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, location, symbolName, restrictedNamespace);
+									context.ReportDiagnostic(diagnostic);
+								}
+							}
 						}
 					}
 				}
 			}
+		}
+
+		private static string? ExtractNamespaceFromAttribute(AttributeSyntax attribute) {
+			// Check for constructor argument: [RestrictTo("Namespace")]
+			if (attribute.ArgumentList?.Arguments.Count > 0) {
+				var firstArg = attribute.ArgumentList.Arguments[0];
+				if (firstArg.Expression is LiteralExpressionSyntax literal && 
+					literal.Token.IsKind(SyntaxKind.StringLiteralToken)) {
+					return literal.Token.ValueText;
+				}
+			}
+
+			// Check for named argument: [RestrictTo(Namespace = "Namespace")]
+			if (attribute.ArgumentList?.Arguments is { } arguments) {
+				foreach (var arg in arguments) {
+					if (arg.NameEquals?.Name.Identifier.ValueText == "Namespace" &&
+						arg.Expression is LiteralExpressionSyntax literal &&
+						literal.Token.IsKind(SyntaxKind.StringLiteralToken)) {
+						return literal.Token.ValueText;
+					}
+				}
+			}
+
+			return null;
 		}
 
 		private static string GetFullNamespace(ISymbol? symbol) {
