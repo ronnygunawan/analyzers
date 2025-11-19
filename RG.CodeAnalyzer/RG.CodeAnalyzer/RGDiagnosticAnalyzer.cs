@@ -48,6 +48,7 @@ namespace RG.CodeAnalyzer {
 		public const string SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE_ID = "RG0034";
 		public const string SERVICE_LIFETIME_MISMATCH_ID = "RG0035";
 		public const string DI_IMPLEMENTATION_MUST_BE_INTERNAL_ID = "RG0036";
+		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0037";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -364,7 +365,16 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Classes registered with dependency injection should be internal to hide implementation details.");
 
-		public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
+		private static readonly DiagnosticDescriptor USAGE_RESTRICTED_TO_NAMESPACE = new(
+			id: USAGE_RESTRICTED_TO_NAMESPACE_ID,
+			title: "Usage is restricted to a specific namespace",
+			messageFormat: "Usage of '{0}' is only allowed in namespace '{1}'",
+			category: "Usage",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Usage of symbol is restricted to a specific namespace.");
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
 			IDENTIFIERS_IN_INTERNAL_NAMESPACE_MUST_BE_INTERNAL,
@@ -399,7 +409,8 @@ namespace RG.CodeAnalyzer {
 			USE_OVERLOAD_WITHOUT_CANCELLATION_TOKEN_IF_ARGUMENT_IS_DEFAULT,
 			SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
 			SERVICE_LIFETIME_MISMATCH,
-			DI_IMPLEMENTATION_MUST_BE_INTERNAL
+			DI_IMPLEMENTATION_MUST_BE_INTERNAL,
+			USAGE_RESTRICTED_TO_NAMESPACE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -480,7 +491,11 @@ namespace RG.CodeAnalyzer {
 			context.RegisterSyntaxNodeAction(AnalyzeCastExpressions, SyntaxKind.CastExpression);
 
 			// DO_NOT_USE_DYNAMIC_TYPE
+			// USAGE_RESTRICTED_TO_NAMESPACE
 			context.RegisterSyntaxNodeAction(AnalyzeIdentifierNames, SyntaxKind.IdentifierName);
+
+			// USAGE_RESTRICTED_TO_NAMESPACE
+			context.RegisterSyntaxNodeAction(AnalyzeTypeDeclarations, SyntaxKind.ClassDeclaration, SyntaxKind.StructDeclaration, SyntaxKind.RecordDeclaration, SyntaxKind.InterfaceDeclaration);
 
 			// STATIC_CLASS_WITH_EXTENSION_METHODS_SHOULD_HAVE_EXTENSIONS_SUFFIX
 			context.RegisterSyntaxNodeAction(AnalyzeClassDeclarations, SyntaxKind.ClassDeclaration);
@@ -1418,11 +1433,158 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void AnalyzeIdentifierNames(SyntaxNodeAnalysisContext context) {
-			if (context.Node is IdentifierNameSyntax {
-				Identifier: { Text: "dynamic" } identifier
-			}) {
-				Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
-				context.ReportDiagnostic(diagnostic);
+			try {
+				if (context.Node is IdentifierNameSyntax {
+					Identifier: { Text: "dynamic" } identifier
+				}) {
+					Diagnostic diagnostic = Diagnostic.Create(DO_NOT_USE_DYNAMIC_TYPE, identifier.GetLocation());
+					context.ReportDiagnostic(diagnostic);
+					return;
+				}
+
+				if (context.Node is IdentifierNameSyntax identifierName) {
+					// Skip identifiers that are part of attribute applications
+					if (identifierName.Parent is AttributeSyntax || identifierName.Ancestors().OfType<AttributeSyntax>().Any()) {
+						return;
+					}
+
+					// Skip identifiers that are part of base type lists (already handled by AnalyzeTypeDeclarations)
+					if (identifierName.Ancestors().OfType<BaseTypeSyntax>().Any()) {
+						return;
+					}
+
+					// Check for usage restrictions by looking at the syntax tree
+					CheckIdentifierForRestriction(context, identifierName);
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void CheckIdentifierForRestriction(SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifierName) {
+			string typeName = identifierName.Identifier.Text;
+			
+			// Find the current namespace
+			string currentNamespace = GetNamespaceFromSyntax(identifierName);
+			
+			// Search the syntax tree for declarations with this name that have RestrictTo attributes
+			var root = context.Node.SyntaxTree.GetRoot(context.CancellationToken);
+			var restrictions = FindRestrictionsInTree(root, typeName);
+			
+			foreach (var (restrictedNamespace, location) in restrictions) {
+				if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+					Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, identifierName.GetLocation(), typeName, restrictedNamespace);
+					context.ReportDiagnostic(diagnostic);
+					break; // Only report once per identifier
+				}
+			}
+		}
+
+		private static List<(string restrictedNamespace, Location declarationLocation)> FindRestrictionsInTree(SyntaxNode root, string typeName) {
+			var restrictions = new List<(string, Location)>();
+			
+			// Find all type and member declarations with the matching name
+			var declarations = root.DescendantNodes().Where(node => {
+				string? declName = node switch {
+					ClassDeclarationSyntax c => c.Identifier.Text,
+					StructDeclarationSyntax s => s.Identifier.Text,
+					RecordDeclarationSyntax r => r.Identifier.Text,
+					InterfaceDeclarationSyntax i => i.Identifier.Text,
+					EnumDeclarationSyntax e => e.Identifier.Text,
+					DelegateDeclarationSyntax d => d.Identifier.Text,
+					PropertyDeclarationSyntax p => p.Identifier.Text,
+					MethodDeclarationSyntax m => m.Identifier.Text,
+					FieldDeclarationSyntax f => f.Declaration.Variables.FirstOrDefault()?.Identifier.Text,
+					EventDeclarationSyntax ev => ev.Identifier.Text,
+					_ => null
+				};
+				return declName == typeName;
+			});
+			
+			foreach (var decl in declarations) {
+				var attributeLists = GetAttributeLists(decl);
+				if (attributeLists != null) {
+					foreach (var attributeList in attributeLists) {
+						foreach (var attribute in attributeList.Attributes) {
+							string attributeName = attribute.Name.ToString();
+							if (attributeName == "RestrictTo" || attributeName == "RestrictToAttribute") {
+								string? restrictedNamespace = ExtractNamespaceFromAttribute(attribute);
+								if (restrictedNamespace != null) {
+									restrictions.Add((restrictedNamespace, decl.GetLocation()));
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			return restrictions;
+		}
+
+		private static SyntaxList<AttributeListSyntax>? GetAttributeLists(SyntaxNode node) {
+			return node switch {
+				ClassDeclarationSyntax c => c.AttributeLists,
+				StructDeclarationSyntax s => s.AttributeLists,
+				RecordDeclarationSyntax r => r.AttributeLists,
+				InterfaceDeclarationSyntax i => i.AttributeLists,
+				EnumDeclarationSyntax e => e.AttributeLists,
+				DelegateDeclarationSyntax d => d.AttributeLists,
+				PropertyDeclarationSyntax p => p.AttributeLists,
+				MethodDeclarationSyntax m => m.AttributeLists,
+				FieldDeclarationSyntax f => f.AttributeLists,
+				EventDeclarationSyntax ev => ev.AttributeLists,
+				_ => null
+			};
+		}
+
+		private static string GetNamespaceFromSyntax(SyntaxNode node) {
+			var namespaceDecl = node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault();
+			if (namespaceDecl != null) {
+				return namespaceDecl.Name.ToString();
+			}
+			return string.Empty;
+		}
+
+		private static void AnalyzeTypeDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				BaseListSyntax? baseList = context.Node switch {
+					ClassDeclarationSyntax classDecl => classDecl.BaseList,
+					StructDeclarationSyntax structDecl => structDecl.BaseList,
+					RecordDeclarationSyntax recordDecl => recordDecl.BaseList,
+					InterfaceDeclarationSyntax interfaceDecl => interfaceDecl.BaseList,
+					_ => null
+				};
+
+				if (baseList is not null) {
+					foreach (var baseType in baseList.Types) {
+						// Extract the type name from the syntax
+						string? typeName = baseType.Type switch {
+							IdentifierNameSyntax identifierName => identifierName.Identifier.Text,
+							QualifiedNameSyntax qualifiedName => qualifiedName.Right.Identifier.Text,
+							GenericNameSyntax genericName => genericName.Identifier.Text,
+							_ => null
+						};
+
+						if (typeName != null) {
+							// Find the current namespace
+							string currentNamespace = GetNamespaceFromSyntax(baseType);
+							
+							// Search for restrictions
+							var root = context.Node.SyntaxTree.GetRoot(context.CancellationToken);
+							var restrictions = FindRestrictionsInTree(root, typeName);
+							
+							foreach (var (restrictedNamespace, location) in restrictions) {
+								if (!IsInNamespace(currentNamespace, restrictedNamespace)) {
+									Diagnostic diagnostic = Diagnostic.Create(USAGE_RESTRICTED_TO_NAMESPACE, baseType.Type.GetLocation(), typeName, restrictedNamespace);
+									context.ReportDiagnostic(diagnostic);
+									break;
+								}
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
 		}
 
@@ -1736,6 +1898,35 @@ namespace RG.CodeAnalyzer {
 				_ => 0
 			};
 		}
-		#endregion
+
+		private static string? ExtractNamespaceFromAttribute(AttributeSyntax attribute) {
+			// Check for constructor argument: [RestrictTo("Namespace")]
+			if (attribute.ArgumentList?.Arguments.Count > 0) {
+				var firstArg = attribute.ArgumentList.Arguments[0];
+				if (firstArg.Expression is LiteralExpressionSyntax literal && 
+					literal.Token.IsKind(SyntaxKind.StringLiteralToken)) {
+					return literal.Token.ValueText;
+				}
+			}
+
+			// Check for named argument: [RestrictTo(Namespace = "Namespace")]
+			if (attribute.ArgumentList?.Arguments is { } arguments) {
+				foreach (var arg in arguments) {
+					if (arg.NameEquals?.Name.Identifier.ValueText == "Namespace" &&
+						arg.Expression is LiteralExpressionSyntax literal &&
+						literal.Token.IsKind(SyntaxKind.StringLiteralToken)) {
+						return literal.Token.ValueText;
+					}
+				}
+			}
+
+			return null;
+		}
+
+		private static bool IsInNamespace(string currentNamespace, string restrictedNamespace) {
+			if (string.IsNullOrEmpty(currentNamespace)) return false;
+			return currentNamespace == restrictedNamespace || currentNamespace.StartsWith(restrictedNamespace + ".", StringComparison.Ordinal);
+    }
+    #endregion
 	}
 }
