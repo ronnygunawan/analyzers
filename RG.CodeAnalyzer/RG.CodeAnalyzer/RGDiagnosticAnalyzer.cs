@@ -1970,7 +1970,7 @@ namespace RG.CodeAnalyzer {
 								}
 							}
 							
-							if (justification is not null && string.IsNullOrWhiteSpace(justification)) {
+							if (justification is not null && (string.IsNullOrWhiteSpace(justification) || justification == "<Pending>")) {
 								string diagnosticMessageId = messageId ?? "unknown";
 								Diagnostic diagnostic = Diagnostic.Create(
 									SUPPRESS_MESSAGE_JUSTIFICATION_PENDING, 

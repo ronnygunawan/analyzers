@@ -66,6 +66,35 @@ namespace ConsoleApplication1
 		}
 
 		[TestMethod]
+		public void TestPendingJustification() {
+			string test = @"
+using System.Diagnostics.CodeAnalysis;
+
+namespace ConsoleApplication1
+{
+	public class TypeName
+	{
+		[SuppressMessage(""Category"", ""RG0003"", Justification = ""<Pending>"")]
+		public void MethodName() {
+		}
+	}
+}
+";
+
+			DiagnosticResult expected = new() {
+				Id = "RG0038",
+				Message = "Justification is required for suppressing message 'RG0003'",
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 8, 4)
+					}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
+		}
+
+		[TestMethod]
 		public void TestValidJustification() {
 			string test = @"
 using System.Diagnostics.CodeAnalysis;
