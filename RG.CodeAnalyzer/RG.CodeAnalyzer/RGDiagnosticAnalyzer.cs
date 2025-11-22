@@ -2009,7 +2009,7 @@ namespace RG.CodeAnalyzer {
 						context.RegisterSyntaxTreeAction(treeContext => {
 							if (System.Threading.Interlocked.CompareExchange(ref reportCount, 1, 0) == 0) {
 								SyntaxNode root = treeContext.Tree.GetCompilationUnitRoot();
-								if (root.DescendantNodes().Any()) {
+								if (root is CompilationUnitSyntax compilationUnit && compilationUnit.Members.Any()) {
 									Diagnostic diagnostic = Diagnostic.Create(
 										NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
 										Location.Create(treeContext.Tree, new Microsoft.CodeAnalysis.Text.TextSpan(0, 0))
