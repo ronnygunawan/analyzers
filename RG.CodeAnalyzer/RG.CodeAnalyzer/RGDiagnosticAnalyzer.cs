@@ -49,6 +49,7 @@ namespace RG.CodeAnalyzer {
 		public const string SERVICE_LIFETIME_MISMATCH_ID = "RG0035";
 		public const string DI_IMPLEMENTATION_MUST_BE_INTERNAL_ID = "RG0036";
 		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0037";
+		public const string SUPPRESS_MESSAGE_JUSTIFICATION_PENDING_ID = "RG0038";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -374,6 +375,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Usage of symbol is restricted to a specific namespace.");
 
+		private static readonly DiagnosticDescriptor SUPPRESS_MESSAGE_JUSTIFICATION_PENDING = new(
+			id: SUPPRESS_MESSAGE_JUSTIFICATION_PENDING_ID,
+			title: "Pending justification for suppressing code analysis message",
+			messageFormat: "Justification is required for suppressing message '{0}'",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "SuppressMessage attribute must have a non-empty Justification parameter.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -410,7 +420,8 @@ namespace RG.CodeAnalyzer {
 			SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
 			SERVICE_LIFETIME_MISMATCH,
 			DI_IMPLEMENTATION_MUST_BE_INTERNAL,
-			USAGE_RESTRICTED_TO_NAMESPACE
+			USAGE_RESTRICTED_TO_NAMESPACE,
+			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -502,6 +513,9 @@ namespace RG.CodeAnalyzer {
 
 			// SERVICE_LIFETIME_MISMATCH
 			context.RegisterSymbolAction(AnalyzeServiceLifetimes, SymbolKind.NamedType);
+
+			// SUPPRESS_MESSAGE_JUSTIFICATION_PENDING
+			context.RegisterSyntaxNodeAction(AnalyzeAttributes, SyntaxKind.Attribute);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1927,6 +1941,51 @@ namespace RG.CodeAnalyzer {
 			if (string.IsNullOrEmpty(currentNamespace)) return false;
 			return currentNamespace == restrictedNamespace || currentNamespace.StartsWith(restrictedNamespace + ".", StringComparison.Ordinal);
     }
+
+		private static void AnalyzeAttributes(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is AttributeSyntax attributeSyntax) {
+					string attributeName = attributeSyntax.Name.ToString();
+					
+					if (attributeName is "SuppressMessage" 
+						or "System.Diagnostics.CodeAnalysis.SuppressMessage"
+						or "SuppressMessageAttribute"
+						or "System.Diagnostics.CodeAnalysis.SuppressMessageAttribute") {
+						
+						if (attributeSyntax.ArgumentList?.Arguments is { } arguments) {
+							string? messageId = null;
+							string? justification = null;
+							
+							if (arguments.Count >= 2 && arguments[1].Expression is LiteralExpressionSyntax messageLiteral) {
+								messageId = messageLiteral.Token.ValueText;
+							}
+							
+							foreach (var arg in arguments) {
+								if (arg.NameEquals?.Name.Identifier.ValueText == "Justification") {
+									if (arg.Expression is LiteralExpressionSyntax literal 
+										&& literal.Token.IsKind(SyntaxKind.StringLiteralToken)) {
+										justification = literal.Token.ValueText;
+									}
+									break;
+								}
+							}
+							
+							if (justification is not null && string.IsNullOrWhiteSpace(justification)) {
+								string diagnosticMessageId = messageId ?? "unknown";
+								Diagnostic diagnostic = Diagnostic.Create(
+									SUPPRESS_MESSAGE_JUSTIFICATION_PENDING, 
+									attributeSyntax.GetLocation(), 
+									diagnosticMessageId
+								);
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
     #endregion
 	}
 }

@@ -504,3 +504,27 @@ namespace MyApp {
 ```
 
 Code fix: Make the implementation class internal
+
+### 38. Pending justification for suppressing code analysis message
+```cs
+using System.Diagnostics.CodeAnalysis;
+
+class MyClass {
+    [SuppressMessage("Category", "RG0001", Justification = "")] // RG0038: Justification is required for suppressing message 'RG0001'
+    public void MyMethod() {
+    }
+}
+```
+
+When using `[SuppressMessage]` attribute to suppress code analysis warnings, you must provide a non-empty justification explaining why the warning is being suppressed. This ensures code suppressions are documented and justified.
+
+Valid usage:
+```cs
+using System.Diagnostics.CodeAnalysis;
+
+class MyClass {
+    [SuppressMessage("Category", "RG0001", Justification = "Performance-critical path, async not needed")]
+    public void MyMethod() {
+    }
+}
+```
