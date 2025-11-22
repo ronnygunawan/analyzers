@@ -129,7 +129,17 @@ namespace ConsoleApplication1
 }
 ";
 
-			VerifyCSharpDiagnostic(test);
+			DiagnosticResult expected = new() {
+				Id = "RG0038",
+				Message = "Justification is required for suppressing message 'RG0001'",
+				Severity = DiagnosticSeverity.Warning,
+				Locations =
+					new[] {
+						new DiagnosticResultLocation("Test0.cs", 8, 4)
+					}
+			};
+
+			VerifyCSharpDiagnostic(test, expected);
 		}
 
 		[TestMethod]
