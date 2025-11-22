@@ -50,6 +50,7 @@ namespace RG.CodeAnalyzer {
 		public const string DI_IMPLEMENTATION_MUST_BE_INTERNAL_ID = "RG0036";
 		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0037";
 		public const string SUPPRESS_MESSAGE_JUSTIFICATION_PENDING_ID = "RG0038";
+		public const string NULLABLE_REFERENCE_TYPE_NOT_ENABLED_ID = "RG0039";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -384,6 +385,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "SuppressMessage attribute must have a non-empty Justification parameter.");
 
+		private static readonly DiagnosticDescriptor NULLABLE_REFERENCE_TYPE_NOT_ENABLED = new(
+			id: NULLABLE_REFERENCE_TYPE_NOT_ENABLED_ID,
+			title: "Nullable reference type is not enabled",
+			messageFormat: "Nullable reference type static analysis is not enabled",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "Nullable reference type static analysis should be enabled to prevent null reference exceptions.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -421,7 +431,8 @@ namespace RG.CodeAnalyzer {
 			SERVICE_LIFETIME_MISMATCH,
 			DI_IMPLEMENTATION_MUST_BE_INTERNAL,
 			USAGE_RESTRICTED_TO_NAMESPACE,
-			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING
+			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING,
+			NULLABLE_REFERENCE_TYPE_NOT_ENABLED
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -516,6 +527,9 @@ namespace RG.CodeAnalyzer {
 
 			// SUPPRESS_MESSAGE_JUSTIFICATION_PENDING
 			context.RegisterSyntaxNodeAction(AnalyzeAttributes, SyntaxKind.Attribute);
+
+			// NULLABLE_REFERENCE_TYPE_NOT_ENABLED
+			context.RegisterCompilationStartAction(AnalyzeNullableContext);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -1980,6 +1994,30 @@ namespace RG.CodeAnalyzer {
 								context.ReportDiagnostic(diagnostic);
 							}
 						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeNullableContext(CompilationStartAnalysisContext context) {
+			try {
+				if (context.Compilation is CSharpCompilation csharpCompilation) {
+					if (csharpCompilation.Options.NullableContextOptions is NullableContextOptions.Disable) {
+						int reportCount = 0;
+						context.RegisterSyntaxTreeAction(treeContext => {
+							if (System.Threading.Interlocked.CompareExchange(ref reportCount, 1, 0) == 0) {
+								SyntaxNode root = treeContext.Tree.GetCompilationUnitRoot();
+								if (root.DescendantNodes().Any()) {
+									Diagnostic diagnostic = Diagnostic.Create(
+										NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
+										Location.Create(treeContext.Tree, new Microsoft.CodeAnalysis.Text.TextSpan(0, 0))
+									);
+									treeContext.ReportDiagnostic(diagnostic);
+								}
+							}
+						});
 					}
 				}
 			} catch (Exception exc) {
