@@ -228,8 +228,15 @@ namespace ConsoleApplication1
 			List<CodeAction> actions = GetRefactorings(document, span);
 
 			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
-			Assert.IsTrue(namedArgActions.Count >= 3, 
-				$"Should offer multiple refactorings for multiple overloads. Found {namedArgActions.Count}");
+			Assert.AreEqual(3, namedArgActions.Count, 
+				$"Should offer 3 refactorings for 3 overloads. Found {namedArgActions.Count}");
+			
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named argument (Int32)"),
+				"Should offer refactoring for Person(int id)");
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (Int32, String)"),
+				"Should offer refactoring for Person(int id, string firstName)");
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (Int32, String, String)"),
+				"Should offer refactoring for Person(int id, string firstName, string lastName)");
 		}
 
 		[TestMethod]
