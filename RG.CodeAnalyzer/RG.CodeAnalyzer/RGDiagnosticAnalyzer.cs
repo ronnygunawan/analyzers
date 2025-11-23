@@ -52,6 +52,7 @@ namespace RG.CodeAnalyzer {
 		public const string SUPPRESS_MESSAGE_JUSTIFICATION_PENDING_ID = "RG0038";
 		public const string NULLABLE_REFERENCE_TYPE_NOT_ENABLED_ID = "RG0039";
 		public const string MUST_CALL_BASE_METHOD_ID = "RG0040";
+		public const string NEVER_ASYNC_ATTRIBUTE_MISUSE_ID = "RG0041";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -404,6 +405,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "When a base method is marked with [MustCallBase], all overriding methods must call the base implementation.");
 
+		private static readonly DiagnosticDescriptor NEVER_ASYNC_ATTRIBUTE_MISUSE = new(
+			id: NEVER_ASYNC_ATTRIBUTE_MISUSE_ID,
+			title: "Invalid use of [NeverAsync] attribute",
+			messageFormat: "{0}",
+			category: "Code Quality",
+			defaultSeverity: DiagnosticSeverity.Warning,
+			isEnabledByDefault: true,
+			description: "The [NeverAsync] attribute can only be used on methods that return Task but do not use the async modifier and do not call async methods.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -443,7 +453,8 @@ namespace RG.CodeAnalyzer {
 			USAGE_RESTRICTED_TO_NAMESPACE,
 			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING,
 			NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
-			MUST_CALL_BASE_METHOD
+			MUST_CALL_BASE_METHOD,
+			NEVER_ASYNC_ATTRIBUTE_MISUSE
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -544,6 +555,9 @@ namespace RG.CodeAnalyzer {
 
 			// MUST_CALL_BASE_METHOD
 			context.RegisterSymbolAction(AnalyzeMethodOverrides, SymbolKind.Method);
+
+			// NEVER_ASYNC_ATTRIBUTE_MISUSE
+			context.RegisterSymbolAction(AnalyzeNeverAsyncAttribute, SymbolKind.Method);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -941,6 +955,13 @@ namespace RG.CodeAnalyzer {
 									&& waitSymbolInfo.Symbol is { } waitSymbol
 									&& waitSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
 									&& context.Node.Parent is InvocationExpressionSyntax waitInvocationSyntax) {
+									// Check if the task comes from a method with [NeverAsync]
+									if (memberAccessExpressionSyntax.Expression is InvocationExpressionSyntax taskInvocation) {
+										if (context.SemanticModel.GetSymbolInfo(taskInvocation, context.CancellationToken).Symbol is IMethodSymbol taskMethodSymbol
+											&& HasNeverAsyncAttribute(taskMethodSymbol)) {
+											break;
+										}
+									}
 									Diagnostic diagnostic = Diagnostic.Create(DO_NOT_CALL_TASK_WAIT_TO_INVOKE_TASK, waitInvocationSyntax.GetLocation());
 									context.ReportDiagnostic(diagnostic);
 								}
@@ -950,6 +971,13 @@ namespace RG.CodeAnalyzer {
 									&& resultSymbolInfo.Symbol is { } resultSymbol
 									&& resultSymbol.ContainingType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
 									&& !resultSymbol.IsStatic) {
+									// Check if the task comes from a method with [NeverAsync]
+									if (memberAccessExpressionSyntax.Expression is InvocationExpressionSyntax taskInvocation) {
+										if (context.SemanticModel.GetSymbolInfo(taskInvocation, context.CancellationToken).Symbol is IMethodSymbol taskMethodSymbol
+											&& HasNeverAsyncAttribute(taskMethodSymbol)) {
+											break;
+										}
+									}
 									Diagnostic diagnostic = Diagnostic.Create(DO_NOT_ACCESS_TASK_RESULT_TO_INVOKE_TASK, memberAccessExpressionSyntax.GetLocation());
 									context.ReportDiagnostic(diagnostic);
 								}
@@ -2112,6 +2140,64 @@ namespace RG.CodeAnalyzer {
 			}
 		}
 
+		private static void AnalyzeNeverAsyncAttribute(SymbolAnalysisContext context) {
+			try {
+				if (context.Symbol is IMethodSymbol methodSymbol) {
+					bool hasNeverAsync = HasNeverAsyncAttribute(methodSymbol);
+					if (!hasNeverAsync) return;
+
+					// Check 1: Method must not have async modifier
+					if (methodSymbol.IsAsync) {
+						foreach (SyntaxReference reference in methodSymbol.DeclaringSyntaxReferences) {
+							Diagnostic diagnostic = Diagnostic.Create(
+								NEVER_ASYNC_ATTRIBUTE_MISUSE,
+								reference.GetSyntax().GetLocation(),
+								"Method decorated with [NeverAsync] cannot use 'async' modifier"
+							);
+							context.ReportDiagnostic(diagnostic);
+						}
+						return;
+					}
+
+					// Check 2: Validate method body doesn't call async methods without [NeverAsync]
+					foreach (SyntaxReference reference in methodSymbol.DeclaringSyntaxReferences) {
+						SyntaxNode syntax = reference.GetSyntax();
+						if (syntax is MethodDeclarationSyntax methodDeclaration) {
+							if (methodDeclaration.Body is { } body) {
+								CheckForAsyncCalls(context, body, methodDeclaration.GetLocation());
+							} else if (methodDeclaration.ExpressionBody is { } expressionBody) {
+								CheckForAsyncCalls(context, expressionBody, methodDeclaration.GetLocation());
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void CheckForAsyncCalls(SymbolAnalysisContext context, SyntaxNode node, Location location) {
+			foreach (InvocationExpressionSyntax invocation in node.DescendantNodes().OfType<InvocationExpressionSyntax>()) {
+				if (context.Compilation.GetSemanticModel(invocation.SyntaxTree) is { } semanticModel) {
+					if (semanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol invokedMethod) {
+						// Check if the invoked method returns a Task and doesn't have [NeverAsync]
+						// Skip framework methods (those from System namespace)
+						if (invokedMethod.ReturnType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+							&& !invokedMethod.ContainingNamespace.ToDisplayString().StartsWith("System", StringComparison.Ordinal)
+							&& !HasNeverAsyncAttribute(invokedMethod)) {
+							Diagnostic diagnostic = Diagnostic.Create(
+								NEVER_ASYNC_ATTRIBUTE_MISUSE,
+								location,
+								"Method decorated with [NeverAsync] calls another Task-returning method that is not decorated with [NeverAsync]"
+							);
+							context.ReportDiagnostic(diagnostic);
+							return;
+						}
+					}
+				}
+			}
+		}
+
 		private static bool HasMustCallBaseInChain(IMethodSymbol methodSymbol) {
 			IMethodSymbol? current = methodSymbol;
 			while (current is not null) {
@@ -2135,6 +2221,12 @@ namespace RG.CodeAnalyzer {
 				}
 				return false;
 			});
+		}
+
+		private static bool HasNeverAsyncAttribute(IMethodSymbol methodSymbol) {
+			return methodSymbol.GetAttributes().Any(attr =>
+				attr.AttributeClass is { Name: "NeverAsyncAttribute" or "NeverAsync" } attrClass
+				&& attrClass.ContainingNamespace?.ToDisplayString() == "RG.Annotations");
 		}
     #endregion
 	}
