@@ -1111,7 +1111,7 @@ namespace RG.CodeAnalyzer {
 						for (int i = 0; i < Math.Min(methodParameters.Length, invocationArguments.Count); i++) {
 							IParameterSymbol parameter = methodParameters[i];
 							bool hasMustBeLockedAttribute = parameter.GetAttributes().Any(attr =>
-								attr.AttributeClass?.ToString() is "RG.Annotations.MustBeLockedAttribute" or "MustBeLockedAttribute");
+								attr.AttributeClass?.Name is "MustBeLockedAttribute");
 							
 							if (hasMustBeLockedAttribute) {
 								ArgumentSyntax argument = invocationArguments[i];
@@ -1121,10 +1121,20 @@ namespace RG.CodeAnalyzer {
 								bool isLocked = false;
 								foreach (LockStatementSyntax lockStatement in invocationExpressionSyntax.Ancestors().OfType<LockStatementSyntax>()) {
 									// Compare the locked expression with the argument expression
-									string lockedExpressionText = lockStatement.Expression.ToString();
-									string argumentExpressionText = argumentExpression.ToString();
+									// Try semantic comparison first (for simple symbols like variables, fields, parameters)
+									ISymbol? lockedSymbol = context.SemanticModel.GetSymbolInfo(lockStatement.Expression, context.CancellationToken).Symbol;
+									ISymbol? argumentSymbol = context.SemanticModel.GetSymbolInfo(argumentExpression, context.CancellationToken).Symbol;
 									
-									if (lockedExpressionText == argumentExpressionText) {
+									bool expressionsMatch = false;
+									if (lockedSymbol is not null && argumentSymbol is not null) {
+										// Use semantic comparison for simple expressions
+										expressionsMatch = SymbolEqualityComparer.Default.Equals(lockedSymbol, argumentSymbol);
+									} else {
+										// Fall back to syntactic comparison for complex expressions (array access, property access, etc.)
+										expressionsMatch = lockStatement.Expression.IsEquivalentTo(argumentExpression);
+									}
+									
+									if (expressionsMatch) {
 										isLocked = true;
 										break;
 									}
