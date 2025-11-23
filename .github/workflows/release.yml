@@ -32,12 +32,12 @@ jobs:
     
     - name: Update project version for RG.CodeAnalyzer
       run: |
-        sed -i "s|<Version>.*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g" RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
+        sed -i 's|<Version>[^<]*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g' RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
         cat RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
     
     - name: Update project version for RG.Annotations
       run: |
-        sed -i "s|<Version>.*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g" RG.Annotations/RG.Annotations.csproj
+        sed -i 's|<Version>[^<]*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g' RG.Annotations/RG.Annotations.csproj
         cat RG.Annotations/RG.Annotations.csproj
     
     - name: Restore dependencies
