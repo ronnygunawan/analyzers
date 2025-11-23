@@ -733,3 +733,39 @@ string id = ""; // Offers: Generate GUID
 ```
 
 This refactoring is useful when you need to quickly generate unique identifiers in your code.
+
+### Add missing named arguments to method call or constructor
+Place your cursor on a method call or object creation expression and invoke code actions (Ctrl+. or Cmd+.) to see the "Add missing named arguments" refactoring option.
+
+This refactoring **preserves existing argument expressions** and only adds named argument syntax with `_` placeholders for missing parameters.
+
+Before code fix (no arguments):
+```cs
+var person = new Person();
+```
+
+After code fix:
+```cs
+var person = new Person(
+	id: _,
+	firstName: _,
+	lastName: _
+);
+```
+
+Before code fix (partial arguments):
+```cs
+DoSomething(1);
+```
+
+After code fix (existing arguments preserved):
+```cs
+DoSomething(
+	id: 1,
+	name: _
+);
+```
+
+**Note:** 
+- When multiple matching overloads are found, multiple code fixes will be offered, each showing the parameter names in the title to help you choose the correct overload.
+- This refactoring is **not offered** when all arguments are already supplied, as the built-in .NET analyzer already handles adding parameter names in that case.

@@ -1,0 +1,289 @@
+using System.Collections.Generic;
+using System.Composition;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeRefactorings;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace RG.CodeAnalyzer {
+	using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+
+	[ExportCodeRefactoringProvider(LanguageNames.CSharp, Name = nameof(AddMissingNamedArgumentsRefactoringProvider)), Shared]
+	public class AddMissingNamedArgumentsRefactoringProvider : CodeRefactoringProvider {
+		public sealed override async Task ComputeRefactoringsAsync(CodeRefactoringContext context) {
+			SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+
+			if (root is null) return;
+
+			SyntaxNode? node = root.FindNode(context.Span);
+
+			// Handle object creation (new Person())
+			if (node is BaseObjectCreationExpressionSyntax objectCreation) {
+				await RegisterObjectCreationRefactoringsAsync(context, objectCreation);
+				return;
+			}
+
+			// Handle method invocation (Foo())
+			if (node is InvocationExpressionSyntax invocation) {
+				await RegisterInvocationRefactoringsAsync(context, invocation);
+				return;
+			}
+
+			// Also check ancestors for object creation or invocation
+			BaseObjectCreationExpressionSyntax? ancestorObjectCreation = node?.AncestorsAndSelf().OfType<BaseObjectCreationExpressionSyntax>().FirstOrDefault();
+			if (ancestorObjectCreation is not null) {
+				await RegisterObjectCreationRefactoringsAsync(context, ancestorObjectCreation);
+				return;
+			}
+
+			InvocationExpressionSyntax? ancestorInvocation = node?.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+			if (ancestorInvocation is not null) {
+				await RegisterInvocationRefactoringsAsync(context, ancestorInvocation);
+			}
+		}
+
+		private async Task RegisterObjectCreationRefactoringsAsync(
+			CodeRefactoringContext context,
+			BaseObjectCreationExpressionSyntax objectCreation) {
+
+			SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+			if (semanticModel is null) return;
+
+			ITypeSymbol? typeSymbol = semanticModel.GetTypeInfo(objectCreation, context.CancellationToken).Type;
+			if (typeSymbol is null) return;
+
+			// Get all constructors
+			IEnumerable<IMethodSymbol> constructors = typeSymbol.GetMembers()
+				.OfType<IMethodSymbol>()
+				.Where(m => m.MethodKind == MethodKind.Constructor && !m.IsStatic);
+
+			// Get the number of existing arguments
+			int existingArgumentCount = objectCreation.ArgumentList?.Arguments.Count ?? 0;
+
+			foreach (IMethodSymbol constructor in constructors) {
+				if (constructor.Parameters.Length == 0) continue;
+				
+				// Skip if all arguments are already supplied (built-in analyzer handles this case)
+				if (constructor.Parameters.Length == existingArgumentCount) continue;
+
+				string title = constructor.Parameters.Length == 1
+					? "Add missing named argument"
+					: "Add missing named arguments";
+
+				if (constructors.Count() > 1) {
+					// Show parameter names in title when multiple overloads exist
+					string paramNames = string.Join(", ", constructor.Parameters.Select(p => p.Name));
+					title += $" ({paramNames})";
+				}
+
+				CodeAction action = CodeAction.Create(
+					title: title,
+					createChangedDocument: c => AddNamedArgumentsToObjectCreationAsync(
+						context.Document, objectCreation, constructor, c),
+					equivalenceKey: title);
+
+				context.RegisterRefactoring(action);
+			}
+		}
+
+		private async Task RegisterInvocationRefactoringsAsync(
+			CodeRefactoringContext context,
+			InvocationExpressionSyntax invocation) {
+
+			SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+			if (semanticModel is null) return;
+
+			SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
+			
+			List<IMethodSymbol> methods = new();
+			
+			// Get the primary resolved method
+			IMethodSymbol? primaryMethod = null;
+			if (symbolInfo.Symbol is IMethodSymbol method) {
+				primaryMethod = method;
+				methods.Add(method);
+			}
+			
+			// Also check candidate symbols for overloads
+			if (symbolInfo.CandidateSymbols.Length > 0) {
+				methods.AddRange(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>());
+			}
+			
+			// If we have a primary method, also get all other overloads from the containing type
+			// This handles cases where existing arguments match one overload but we want to offer all possible overloads
+			if (primaryMethod is not null && primaryMethod.ContainingType is not null) {
+				IEnumerable<IMethodSymbol> allOverloads = primaryMethod.ContainingType.GetMembers(primaryMethod.Name)
+					.OfType<IMethodSymbol>()
+					.Where(m => !m.IsStatic || primaryMethod.IsStatic); // Match static/instance
+				
+				foreach (IMethodSymbol overload in allOverloads) {
+					if (!methods.Contains(overload, SymbolEqualityComparer.Default)) {
+						methods.Add(overload);
+					}
+				}
+			}
+
+			if (methods.Count == 0) return;
+
+			// Get the number of existing arguments
+			int existingArgumentCount = invocation.ArgumentList.Arguments.Count;
+
+			foreach (IMethodSymbol methodSymbol in methods) {
+				if (methodSymbol.Parameters.Length == 0) continue;
+				
+				// Skip if all arguments are already supplied (built-in analyzer handles this case)
+				if (methodSymbol.Parameters.Length == existingArgumentCount) continue;
+
+				string title = methodSymbol.Parameters.Length == 1
+					? "Add missing named argument"
+					: "Add missing named arguments";
+
+				if (methods.Count > 1) {
+					// Show parameter names in title when multiple overloads exist
+					string paramNames = string.Join(", ", methodSymbol.Parameters.Select(p => p.Name));
+					title += $" ({paramNames})";
+				}
+
+				CodeAction action = CodeAction.Create(
+					title: title,
+					createChangedDocument: c => AddNamedArgumentsToInvocationAsync(
+						context.Document, invocation, methodSymbol, c),
+					equivalenceKey: title);
+
+				context.RegisterRefactoring(action);
+			}
+		}
+
+		private async Task<Document> AddNamedArgumentsToObjectCreationAsync(
+			Document document,
+			BaseObjectCreationExpressionSyntax objectCreation,
+			IMethodSymbol constructor,
+			CancellationToken cancellationToken) {
+
+			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+			if (root is null) return document;
+
+			ArgumentListSyntax? argumentList = objectCreation.ArgumentList;
+			if (argumentList is null) {
+				// No argument list, create one
+				argumentList = ArgumentList();
+			}
+
+			// Get existing arguments
+			List<ExpressionSyntax> existingExpressions = new();
+			if (argumentList.Arguments.Count > 0) {
+				existingExpressions.AddRange(argumentList.Arguments.Select(arg => arg.Expression));
+			}
+
+			// Build new arguments, preserving existing ones and adding placeholders for missing
+			List<ArgumentSyntax> newArguments = new();
+			for (int i = 0; i < constructor.Parameters.Length; i++) {
+				IParameterSymbol parameter = constructor.Parameters[i];
+				ExpressionSyntax expression = i < existingExpressions.Count 
+					? existingExpressions[i] 
+					: IdentifierName("_");
+				
+				ArgumentSyntax argument = Argument(
+					NameColon(IdentifierName(parameter.Name)),
+					Token(SyntaxKind.None),
+					expression
+				);
+				newArguments.Add(argument);
+			}
+
+			// Format with proper indentation
+			SyntaxToken statementLeadingToken = objectCreation.GetFirstToken();
+			SyntaxTriviaList statementIndent = statementLeadingToken.LeadingTrivia;
+			
+			string indentString = string.Concat(statementIndent.Where(t => t.IsKind(SyntaxKind.WhitespaceTrivia)).Select(t => t.ToString()));
+			int tabCount = indentString.Count(c => c == '\t');
+			int spaceCount = indentString.Count(c => c == ' ');
+			int totalIndent = tabCount + (spaceCount / 4);
+			
+			string argumentIndent = new string('\t', totalIndent + 1);
+			SyntaxTriviaList argumentLeadingTrivia = TriviaList(LineFeed, Whitespace(argumentIndent));
+			
+			string closingIndent = new string('\t', totalIndent);
+			SyntaxTriviaList closingTrivia = TriviaList(LineFeed, Whitespace(closingIndent));
+
+			SeparatedSyntaxList<ArgumentSyntax> formattedArguments = SeparatedList(
+				newArguments.Select(arg => arg.WithLeadingTrivia(argumentLeadingTrivia)),
+				Enumerable.Repeat(Token(SyntaxKind.CommaToken), newArguments.Count - 1)
+			);
+
+			ArgumentListSyntax newArgumentList = ArgumentList(formattedArguments)
+				.WithCloseParenToken(Token(SyntaxKind.CloseParenToken).WithLeadingTrivia(closingTrivia));
+
+			BaseObjectCreationExpressionSyntax newObjectCreation = objectCreation.WithArgumentList(newArgumentList);
+
+			SyntaxNode newRoot = root.ReplaceNode(objectCreation, newObjectCreation);
+			return document.WithSyntaxRoot(newRoot);
+		}
+
+		private async Task<Document> AddNamedArgumentsToInvocationAsync(
+			Document document,
+			InvocationExpressionSyntax invocation,
+			IMethodSymbol method,
+			CancellationToken cancellationToken) {
+
+			SyntaxNode? root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+			if (root is null) return document;
+
+			ArgumentListSyntax argumentList = invocation.ArgumentList;
+
+			// Get existing arguments
+			List<ExpressionSyntax> existingExpressions = new();
+			if (argumentList.Arguments.Count > 0) {
+				existingExpressions.AddRange(argumentList.Arguments.Select(arg => arg.Expression));
+			}
+
+			// Build new arguments, preserving existing ones and adding placeholders for missing
+			List<ArgumentSyntax> newArguments = new();
+			for (int i = 0; i < method.Parameters.Length; i++) {
+				IParameterSymbol parameter = method.Parameters[i];
+				ExpressionSyntax expression = i < existingExpressions.Count 
+					? existingExpressions[i] 
+					: IdentifierName("_");
+				
+				ArgumentSyntax argument = Argument(
+					NameColon(IdentifierName(parameter.Name)),
+					Token(SyntaxKind.None),
+					expression
+				);
+				newArguments.Add(argument);
+			}
+
+			// Format with proper indentation
+			SyntaxToken statementLeadingToken = invocation.GetFirstToken();
+			SyntaxTriviaList statementIndent = statementLeadingToken.LeadingTrivia;
+			
+			string indentString = string.Concat(statementIndent.Where(t => t.IsKind(SyntaxKind.WhitespaceTrivia)).Select(t => t.ToString()));
+			int tabCount = indentString.Count(c => c == '\t');
+			int spaceCount = indentString.Count(c => c == ' ');
+			int totalIndent = tabCount + (spaceCount / 4);
+			
+			string argumentIndent = new string('\t', totalIndent + 1);
+			SyntaxTriviaList argumentLeadingTrivia = TriviaList(LineFeed, Whitespace(argumentIndent));
+			
+			string closingIndent = new string('\t', totalIndent);
+			SyntaxTriviaList closingTrivia = TriviaList(LineFeed, Whitespace(closingIndent));
+
+			SeparatedSyntaxList<ArgumentSyntax> formattedArguments = SeparatedList(
+				newArguments.Select(arg => arg.WithLeadingTrivia(argumentLeadingTrivia)),
+				Enumerable.Repeat(Token(SyntaxKind.CommaToken), newArguments.Count - 1)
+			);
+
+			ArgumentListSyntax newArgumentList = ArgumentList(formattedArguments)
+				.WithCloseParenToken(Token(SyntaxKind.CloseParenToken).WithLeadingTrivia(closingTrivia));
+
+			InvocationExpressionSyntax newInvocation = invocation.WithArgumentList(newArgumentList);
+
+			SyntaxNode newRoot = root.ReplaceNode(invocation, newInvocation);
+			return document.WithSyntaxRoot(newRoot);
+		}
+	}
+}
