@@ -371,9 +371,44 @@ X x = new() {
 ```
 
 ### 30. Argument must be locked
-Methods can be annotated with the `[MustBeLocked]` attribute to indicate that certain arguments must be locked before calling the method.
+Methods can require that certain arguments be locked before calling the method by using the `[MustBeLocked]` attribute from the `RG.Annotations` package.
 
-**Note:** This analyzer (RG0030) is declared but not yet fully implemented. See the repository issues for implementation status.
+```cs
+using RG.Annotations;
+
+class MyClass {
+    private object _resource = new();
+    
+    void ProcessResource([MustBeLocked] object resource) {
+        // Process the resource safely
+    }
+    
+    void Example() {
+        ProcessResource(_resource); // RG0030: Argument must be locked before calling this method
+    }
+}
+```
+
+Correct usage:
+```cs
+using RG.Annotations;
+
+class MyClass {
+    private object _resource = new();
+    
+    void ProcessResource([MustBeLocked] object resource) {
+        // Process the resource safely
+    }
+    
+    void Example() {
+        lock (_resource) {
+            ProcessResource(_resource); // OK - resource is locked
+        }
+    }
+}
+```
+
+This analyzer helps enforce thread-safety requirements by ensuring that objects marked with `[MustBeLocked]` are properly locked before use.
 
 ### 31. Do not use `dynamic` type
 ```cs

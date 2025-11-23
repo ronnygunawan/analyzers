@@ -186,7 +186,7 @@ See README.md section 21 for note about work in progress features.
 - **Convention**: Project-specific conventions
 
 ### Current Analyzer Count
-As of this document: RG0001 through RG0042 (with RG0020 reserved/not implemented, RG0030 declared but not fully implemented)
+As of this document: RG0001 through RG0042 (with RG0020 reserved/not implemented)
 
 ## Contact and Resources
 
