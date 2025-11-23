@@ -13,35 +13,6 @@ namespace RG.CodeAnalyzer.Test {
 	[TestClass]
 	public class AddMissingNamedArgumentsRefactoringTests : DiagnosticVerifier {
 		[TestMethod]
-		public void TestObjectCreation_AllArgumentsSupplied_DoesNotOfferRefactoring2() {
-			string test = @"
-using System;
-
-namespace ConsoleApplication1
-{
-	class Person {
-		public Person(int id, string firstName, string lastName) { }
-	}
-
-	class TypeName
-	{
-		public void Foo() {
-			var person = new Person(1, ""John"", ""Doe"");
-		}
-	}
-}";
-			Document document = CreateDocument(test, LanguageNames.CSharp);
-			
-			int position = test.IndexOf("new Person");
-			TextSpan span = new TextSpan(position, "new Person".Length);
-
-			List<CodeAction> actions = GetRefactorings(document, span);
-
-			Assert.IsFalse(actions.Any(a => a.Title.Contains("Add missing named argument")), 
-				"Should not offer refactoring when all arguments are already supplied (built-in analyzer handles this)");
-		}
-
-		[TestMethod]
 		public void TestObjectCreation_NoParameters_DoesNotOfferRefactoring() {
 			string test = @"
 using System;
@@ -96,33 +67,6 @@ namespace ConsoleApplication1
 			List<CodeAction> actions = GetRefactorings(document, span);
 
 			Assert.IsFalse(actions.Any(a => a.Title.Contains("Add missing named argument")),
-				"Should not offer refactoring when all arguments are already supplied (built-in analyzer handles this)");
-		}
-
-		[TestMethod]
-		public void TestMethodInvocation_AllArgumentsSupplied_DoesNotOfferRefactoring2() {
-			string test = @"
-using System;
-
-namespace ConsoleApplication1
-{
-	class TypeName
-	{
-		public void Foo() {
-			DoSomething(1, ""test"");
-		}
-
-		private void DoSomething(int id, string name) { }
-	}
-}";
-			Document document = CreateDocument(test, LanguageNames.CSharp);
-			
-			int position = test.IndexOf("DoSomething(1");
-			TextSpan span = new TextSpan(position, "DoSomething".Length);
-
-			List<CodeAction> actions = GetRefactorings(document, span);
-
-			Assert.IsFalse(actions.Any(a => a.Title.Contains("Add missing named argument")), 
 				"Should not offer refactoring when all arguments are already supplied (built-in analyzer handles this)");
 		}
 
@@ -250,7 +194,10 @@ namespace ConsoleApplication1
 			List<CodeAction> actions = GetRefactorings(document, span);
 
 			// Should offer refactoring even without existing arguments
-			Assert.IsTrue(actions.Any(a => a.Title.Contains("Add missing named argument")));
+			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
+			Assert.AreEqual(1, namedArgActions.Count, "Should offer exactly one refactoring");
+			Assert.AreEqual("Add missing named arguments", namedArgActions[0].Title,
+				"Should have the correct title");
 		}
 
 		[TestMethod]
@@ -292,7 +239,14 @@ namespace ConsoleApplication1
 			TextSpan span = new TextSpan(position, "DoSomething".Length);
 
 			List<CodeAction> actions = GetRefactorings(document, span);
-			CodeAction? action = actions.FirstOrDefault(a => a.Title.Contains("Add missing named arguments"));
+			
+			// Assert the exact title
+			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
+			Assert.AreEqual(1, namedArgActions.Count, "Should offer exactly one refactoring");
+			Assert.AreEqual("Add missing named arguments", namedArgActions[0].Title,
+				"Should have the correct title");
+			
+			CodeAction? action = namedArgActions.FirstOrDefault();
 
 			Assert.IsNotNull(action, "Should find the refactoring action");
 
@@ -388,6 +342,62 @@ namespace ConsoleApplication1
 
 			List<CodeAction> actions = GetRefactorings(document, span);
 			CodeAction? action = actions.FirstOrDefault(a => a.Title.Contains("Add missing named arguments"));
+
+			Assert.IsNotNull(action, "Should find the refactoring action");
+
+			Document newDocument = ApplyRefactoring(document, action);
+			string newCode = GetStringFromDocument(newDocument);
+
+			Assert.AreEqual(NormalizeWhitespace(expected), NormalizeWhitespace(newCode));
+		}
+
+		[TestMethod]
+		public void TestPartialArguments_ComplexExpression_PreservesExpression() {
+			string test = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class TypeName
+	{
+		public void Foo() {
+			DoSomething(items.Where(x => x.Id > 10).Select(x => x.Name).FirstOrDefault() ?? ""default"");
+		}
+
+		private void DoSomething(string name, int count) { }
+	}
+}";
+			string expected = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class TypeName
+	{
+		public void Foo() {
+			DoSomething(
+				name: items.Where(x => x.Id > 10).Select(x => x.Name).FirstOrDefault() ?? ""default"",
+				count: _
+			);
+		}
+
+		private void DoSomething(string name, int count) { }
+	}
+}";
+			Document document = CreateDocument(test, LanguageNames.CSharp);
+			
+			int position = test.IndexOf("DoSomething(items");
+			TextSpan span = new TextSpan(position, "DoSomething".Length);
+
+			List<CodeAction> actions = GetRefactorings(document, span);
+			
+			// Assert the exact title
+			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
+			Assert.AreEqual(1, namedArgActions.Count, "Should offer exactly one refactoring");
+			Assert.AreEqual("Add missing named arguments", namedArgActions[0].Title,
+				"Should have the correct title");
+			
+			CodeAction? action = namedArgActions.FirstOrDefault();
 
 			Assert.IsNotNull(action, "Should find the refactoring action");
 
