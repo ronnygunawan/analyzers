@@ -7,7 +7,6 @@ namespace RG.CodeAnalyzer.Test {
 	[TestClass]
 	public class ArgumentMustBeLockedTests : CodeFixVerifier {
 		[TestMethod]
-		[Ignore("RG0030 not yet implemented - TODO in code")]
 		public void TestUnlockedLocal() {
 			string test = @"
 using RG.Annotations;
@@ -58,7 +57,6 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		[Ignore("RG0030 not yet implemented - TODO in code")]
 		public void TestUnlockedField() {
 			string test = @"
 using RG.Annotations;
@@ -111,7 +109,6 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		[Ignore("RG0030 not yet implemented - TODO in code")]
 		public void TestUnlockedCollectionElement() {
 			string test = @"
 using RG.Annotations;
@@ -162,7 +159,6 @@ namespace Namespace {
 		}
 
 		[TestMethod]
-		[Ignore("RG0030 not yet implemented - TODO in code")]
 		public void TestUnlockedObjectMember() {
 			string test = @"
 using RG.Annotations;
@@ -170,7 +166,7 @@ using RG.Annotations;
 namespace Namespace {
 	class ClassName {
 		void MethodName() {
-			object[] x = new[] { new { Y = new { } } };
+			var x = new[] { new { Y = new { } } };
 			CalledMethod(x[0].Y, null);
 		}
 
@@ -199,8 +195,8 @@ using RG.Annotations;
 namespace Namespace {
 	class ClassName {
 		void MethodName() {
-			object[] x = new[] { new { Y = new { } } };
-			locked(x[0].Y) {
+			var x = new[] { new { Y = new { } } };
+			lock(x[0].Y) {
 				CalledMethod(x[0].Y, null);
 			}
 		}
