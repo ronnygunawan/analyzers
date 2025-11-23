@@ -2177,22 +2177,27 @@ namespace RG.CodeAnalyzer {
 		}
 
 		private static void CheckForAsyncCalls(SymbolAnalysisContext context, SyntaxNode node, Location location) {
-			foreach (InvocationExpressionSyntax invocation in node.DescendantNodes().OfType<InvocationExpressionSyntax>()) {
-				if (context.Compilation.GetSemanticModel(invocation.SyntaxTree) is { } semanticModel) {
-					if (semanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol invokedMethod) {
-						// Check if the invoked method returns a Task and doesn't have [NeverAsync]
-						// Skip framework methods (those from System namespace)
-						if (invokedMethod.ReturnType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
-							&& !invokedMethod.ContainingNamespace.ToDisplayString().StartsWith("System", StringComparison.Ordinal)
-							&& !HasNeverAsyncAttribute(invokedMethod)) {
-							Diagnostic diagnostic = Diagnostic.Create(
-								NEVER_ASYNC_ATTRIBUTE_MISUSE,
-								location,
-								"Method decorated with [NeverAsync] calls another Task-returning method that is not decorated with [NeverAsync]"
-							);
-							context.ReportDiagnostic(diagnostic);
-							return;
-						}
+			var invocations = node.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
+			if (invocations.Count == 0) return;
+
+			// Get semantic model once for the entire syntax tree
+			SemanticModel? semanticModel = context.Compilation.GetSemanticModel(node.SyntaxTree);
+			if (semanticModel is null) return;
+
+			foreach (InvocationExpressionSyntax invocation in invocations) {
+				if (semanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol invokedMethod) {
+					// Check if the invoked method returns a Task and doesn't have [NeverAsync]
+					// Skip framework methods (those from System namespace)
+					if (invokedMethod.ReturnType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal)
+						&& !invokedMethod.ContainingNamespace.ToDisplayString().StartsWith("System", StringComparison.Ordinal)
+						&& !HasNeverAsyncAttribute(invokedMethod)) {
+						Diagnostic diagnostic = Diagnostic.Create(
+							NEVER_ASYNC_ATTRIBUTE_MISUSE,
+							location,
+							"Method decorated with [NeverAsync] calls another Task-returning method that is not decorated with [NeverAsync]"
+						);
+						context.ReportDiagnostic(diagnostic);
+						return;
 					}
 				}
 			}
