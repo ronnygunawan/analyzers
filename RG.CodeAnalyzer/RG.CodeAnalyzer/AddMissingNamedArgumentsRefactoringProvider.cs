@@ -61,8 +61,14 @@ namespace RG.CodeAnalyzer {
 				.OfType<IMethodSymbol>()
 				.Where(m => m.MethodKind == MethodKind.Constructor && !m.IsStatic);
 
+			// Get the number of existing arguments
+			int existingArgumentCount = objectCreation.ArgumentList?.Arguments.Count ?? 0;
+
 			foreach (IMethodSymbol constructor in constructors) {
 				if (constructor.Parameters.Length == 0) continue;
+				
+				// Skip if all arguments are already supplied (built-in analyzer handles this case)
+				if (constructor.Parameters.Length == existingArgumentCount) continue;
 
 				string title = constructor.Parameters.Length == 1
 					? "Add missing named argument"
@@ -123,8 +129,14 @@ namespace RG.CodeAnalyzer {
 
 			if (methods.Count == 0) return;
 
+			// Get the number of existing arguments
+			int existingArgumentCount = invocation.ArgumentList.Arguments.Count;
+
 			foreach (IMethodSymbol methodSymbol in methods) {
 				if (methodSymbol.Parameters.Length == 0) continue;
+				
+				// Skip if all arguments are already supplied (built-in analyzer handles this case)
+				if (methodSymbol.Parameters.Length == existingArgumentCount) continue;
 
 				string title = methodSymbol.Parameters.Length == 1
 					? "Add missing named argument"
