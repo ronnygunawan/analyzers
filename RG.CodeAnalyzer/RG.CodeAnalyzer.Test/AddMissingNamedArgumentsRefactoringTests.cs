@@ -101,9 +101,9 @@ namespace ConsoleApplication1
 	{
 		public void Foo() {
 			var person = new Person(
-				id: _,
-				firstName: _,
-				lastName: _
+				id: 1,
+				firstName: ""John"",
+				lastName: ""Doe""
 			);
 		}
 	}
@@ -176,8 +176,8 @@ namespace ConsoleApplication1
 	{
 		public void Foo() {
 			DoSomething(
-				id: _,
-				name: _
+				id: 1,
+				name: ""test""
 			);
 		}
 
@@ -297,6 +297,149 @@ namespace ConsoleApplication1
 
 			// Should offer refactoring even without existing arguments
 			Assert.IsTrue(actions.Any(a => a.Title.Contains("Add missing named argument")));
+		}
+
+		[TestMethod]
+		public void TestPartialArguments_PreservesExistingAndAddsPlaceholders() {
+			string test = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class TypeName
+	{
+		public void Foo() {
+			DoSomething(1);
+		}
+
+		private void DoSomething(int id, string name) { }
+	}
+}";
+			string expected = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class TypeName
+	{
+		public void Foo() {
+			DoSomething(
+				id: 1,
+				name: _
+			);
+		}
+
+		private void DoSomething(int id, string name) { }
+	}
+}";
+			Document document = CreateDocument(test, LanguageNames.CSharp);
+			
+			int position = test.IndexOf("DoSomething(1");
+			TextSpan span = new TextSpan(position, "DoSomething".Length);
+
+			List<CodeAction> actions = GetRefactorings(document, span);
+			CodeAction? action = actions.FirstOrDefault(a => a.Title.Contains("Add missing named arguments"));
+
+			Assert.IsNotNull(action, "Should find the refactoring action");
+
+			Document newDocument = ApplyRefactoring(document, action);
+			string newCode = GetStringFromDocument(newDocument);
+
+			Assert.AreEqual(NormalizeWhitespace(expected), NormalizeWhitespace(newCode));
+		}
+
+		[TestMethod]
+		public void TestMultipleOverloads_WithPartialArguments_OffersMatchingOverloads() {
+			string test = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class TypeName
+	{
+		public void Foo() {
+			DoSomething(1);
+		}
+
+		private void DoSomething(int id) { }
+		private void DoSomething(int id, string name) { }
+		private void DoSomething(int id, string name, bool active) { }
+	}
+}";
+			Document document = CreateDocument(test, LanguageNames.CSharp);
+			
+			int position = test.IndexOf("DoSomething(1");
+			TextSpan span = new TextSpan(position, "DoSomething".Length);
+
+			List<CodeAction> actions = GetRefactorings(document, span);
+
+			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
+			
+			// Should offer all three overloads
+			Assert.AreEqual(3, namedArgActions.Count, 
+				$"Should offer 3 refactorings for 3 overloads that can accept the current argument. Found {namedArgActions.Count}");
+			
+			// Verify the exact titles
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named argument (id)"),
+				"Should offer refactoring for DoSomething(int id)");
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (id, name)"),
+				"Should offer refactoring for DoSomething(int id, string name)");
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (id, name, active)"),
+				"Should offer refactoring for DoSomething(int id, string name, bool active)");
+		}
+
+		[TestMethod]
+		public void TestObjectCreation_PartialArguments_AddsPlaceholders() {
+			string test = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class Person {
+		public Person(int id, string firstName, string lastName) { }
+	}
+
+	class TypeName
+	{
+		public void Foo() {
+			var person = new Person(42);
+		}
+	}
+}";
+			string expected = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class Person {
+		public Person(int id, string firstName, string lastName) { }
+	}
+
+	class TypeName
+	{
+		public void Foo() {
+			var person = new Person(
+				id: 42,
+				firstName: _,
+				lastName: _
+			);
+		}
+	}
+}";
+			Document document = CreateDocument(test, LanguageNames.CSharp);
+			
+			int position = test.IndexOf("new Person");
+			TextSpan span = new TextSpan(position, "new Person".Length);
+
+			List<CodeAction> actions = GetRefactorings(document, span);
+			CodeAction? action = actions.FirstOrDefault(a => a.Title.Contains("Add missing named arguments"));
+
+			Assert.IsNotNull(action, "Should find the refactoring action");
+
+			Document newDocument = ApplyRefactoring(document, action);
+			string newCode = GetStringFromDocument(newDocument);
+
+			Assert.AreEqual(NormalizeWhitespace(expected), NormalizeWhitespace(newCode));
 		}
 
 		private List<CodeAction> GetRefactorings(Document document, TextSpan span) {

@@ -94,13 +94,31 @@ namespace RG.CodeAnalyzer {
 			SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation, context.CancellationToken);
 			
 			List<IMethodSymbol> methods = new();
+			
+			// Get the primary resolved method
+			IMethodSymbol? primaryMethod = null;
 			if (symbolInfo.Symbol is IMethodSymbol method) {
+				primaryMethod = method;
 				methods.Add(method);
 			}
 			
 			// Also check candidate symbols for overloads
 			if (symbolInfo.CandidateSymbols.Length > 0) {
 				methods.AddRange(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>());
+			}
+			
+			// If we have a primary method, also get all other overloads from the containing type
+			// This handles cases where existing arguments match one overload but we want to offer all possible overloads
+			if (primaryMethod is not null && primaryMethod.ContainingType is not null) {
+				IEnumerable<IMethodSymbol> allOverloads = primaryMethod.ContainingType.GetMembers(primaryMethod.Name)
+					.OfType<IMethodSymbol>()
+					.Where(m => !m.IsStatic || primaryMethod.IsStatic); // Match static/instance
+				
+				foreach (IMethodSymbol overload in allOverloads) {
+					if (!methods.Contains(overload, SymbolEqualityComparer.Default)) {
+						methods.Add(overload);
+					}
+				}
 			}
 
 			if (methods.Count == 0) return;
@@ -143,12 +161,24 @@ namespace RG.CodeAnalyzer {
 				argumentList = ArgumentList();
 			}
 
+			// Get existing arguments
+			List<ExpressionSyntax> existingExpressions = new();
+			if (argumentList.Arguments.Count > 0) {
+				existingExpressions.AddRange(argumentList.Arguments.Select(arg => arg.Expression));
+			}
+
+			// Build new arguments, preserving existing ones and adding placeholders for missing
 			List<ArgumentSyntax> newArguments = new();
-			foreach (IParameterSymbol parameter in constructor.Parameters) {
+			for (int i = 0; i < constructor.Parameters.Length; i++) {
+				IParameterSymbol parameter = constructor.Parameters[i];
+				ExpressionSyntax expression = i < existingExpressions.Count 
+					? existingExpressions[i] 
+					: IdentifierName("_");
+				
 				ArgumentSyntax argument = Argument(
 					NameColon(IdentifierName(parameter.Name)),
 					Token(SyntaxKind.None),
-					IdentifierName("_")
+					expression
 				);
 				newArguments.Add(argument);
 			}
@@ -193,12 +223,24 @@ namespace RG.CodeAnalyzer {
 
 			ArgumentListSyntax argumentList = invocation.ArgumentList;
 
+			// Get existing arguments
+			List<ExpressionSyntax> existingExpressions = new();
+			if (argumentList.Arguments.Count > 0) {
+				existingExpressions.AddRange(argumentList.Arguments.Select(arg => arg.Expression));
+			}
+
+			// Build new arguments, preserving existing ones and adding placeholders for missing
 			List<ArgumentSyntax> newArguments = new();
-			foreach (IParameterSymbol parameter in method.Parameters) {
+			for (int i = 0; i < method.Parameters.Length; i++) {
+				IParameterSymbol parameter = method.Parameters[i];
+				ExpressionSyntax expression = i < existingExpressions.Count 
+					? existingExpressions[i] 
+					: IdentifierName("_");
+				
 				ArgumentSyntax argument = Argument(
 					NameColon(IdentifierName(parameter.Name)),
 					Token(SyntaxKind.None),
-					IdentifierName("_")
+					expression
 				);
 				newArguments.Add(argument);
 			}
