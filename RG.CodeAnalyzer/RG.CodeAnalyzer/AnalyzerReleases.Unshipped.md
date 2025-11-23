@@ -46,3 +46,4 @@ RG0039 | Code Quality | Error | Nullable reference type is not enabled
 RG0040 | Reliability | Error | Override method must call base method
 RG0041 | Code Quality | Warning | Invalid use of [NeverAsync] attribute
 RG0042 | Code Style | Info | Refactor expression-bodied property to auto-property with initializer
+RG0043 | Maintainability | Info | File should not contain more than 1000 lines
