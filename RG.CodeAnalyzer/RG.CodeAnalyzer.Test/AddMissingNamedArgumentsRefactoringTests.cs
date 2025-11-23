@@ -407,6 +407,69 @@ namespace ConsoleApplication1
 			Assert.AreEqual(NormalizeWhitespace(expected), NormalizeWhitespace(newCode));
 		}
 
+		[TestMethod]
+		public void TestMultipleOverloads_PartialMatch_AppliesCorrectOverload() {
+			string test = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class Person {
+		public Person(int id) { }
+		public Person(int id, string firstName) { }
+		public Person(int id, string firstName, string lastName) { }
+	}
+
+	class TypeName
+	{
+		public void Foo() {
+			var person = new Person(42);
+		}
+	}
+}";
+			string expected = @"
+using System;
+
+namespace ConsoleApplication1
+{
+	class Person {
+		public Person(int id) { }
+		public Person(int id, string firstName) { }
+		public Person(int id, string firstName, string lastName) { }
+	}
+
+	class TypeName
+	{
+		public void Foo() {
+			var person = new Person(
+				id: 42,
+				firstName: _
+			);
+		}
+	}
+}";
+			Document document = CreateDocument(test, LanguageNames.CSharp);
+			
+			int position = test.IndexOf("new Person");
+			TextSpan span = new TextSpan(position, "new Person".Length);
+
+			List<CodeAction> actions = GetRefactorings(document, span);
+			
+			// Should offer 2 overloads (2-param and 3-param), but not 1-param since all args are supplied
+			var namedArgActions = actions.Where(a => a.Title.Contains("Add missing named argument")).ToList();
+			Assert.AreEqual(2, namedArgActions.Count, 
+				$"Should offer 2 refactorings for overloads with more parameters. Found {namedArgActions.Count}");
+			
+			// Find the action for the 2-parameter overload
+			CodeAction? twoParamAction = namedArgActions.FirstOrDefault(a => a.Title == "Add missing named arguments (id, firstName)");
+			Assert.IsNotNull(twoParamAction, "Should find the 2-parameter overload action");
+
+			Document newDocument = ApplyRefactoring(document, twoParamAction);
+			string newCode = GetStringFromDocument(newDocument);
+
+			Assert.AreEqual(NormalizeWhitespace(expected), NormalizeWhitespace(newCode));
+		}
+
 		private List<CodeAction> GetRefactorings(Document document, TextSpan span) {
 			AddMissingNamedArgumentsRefactoringProvider provider = new();
 			List<CodeAction> actions = new();
