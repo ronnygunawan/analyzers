@@ -761,4 +761,4 @@ DoSomething(
 );
 ```
 
-**Note:** When multiple matching overloads are found, multiple code fixes will be offered, each showing the parameter types in the title to help you choose the correct overload.
+**Note:** When multiple matching overloads are found, multiple code fixes will be offered, each showing the parameter names in the title to help you choose the correct overload.

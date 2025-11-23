@@ -231,11 +231,11 @@ namespace ConsoleApplication1
 			Assert.AreEqual(3, namedArgActions.Count, 
 				$"Should offer 3 refactorings for 3 overloads. Found {namedArgActions.Count}");
 			
-			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named argument (Int32)"),
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named argument (id)"),
 				"Should offer refactoring for Person(int id)");
-			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (Int32, String)"),
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (id, firstName)"),
 				"Should offer refactoring for Person(int id, string firstName)");
-			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (Int32, String, String)"),
+			Assert.IsTrue(namedArgActions.Any(a => a.Title == "Add missing named arguments (id, firstName, lastName)"),
 				"Should offer refactoring for Person(int id, string firstName, string lastName)");
 		}
 

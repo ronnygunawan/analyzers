@@ -69,9 +69,9 @@ namespace RG.CodeAnalyzer {
 					: "Add missing named arguments";
 
 				if (constructors.Count() > 1) {
-					// Show parameter types in title when multiple overloads exist
-					string paramTypes = string.Join(", ", constructor.Parameters.Select(p => p.Type.Name));
-					title += $" ({paramTypes})";
+					// Show parameter names in title when multiple overloads exist
+					string paramNames = string.Join(", ", constructor.Parameters.Select(p => p.Name));
+					title += $" ({paramNames})";
 				}
 
 				CodeAction action = CodeAction.Create(
@@ -113,9 +113,9 @@ namespace RG.CodeAnalyzer {
 					: "Add missing named arguments";
 
 				if (methods.Count > 1) {
-					// Show parameter types in title when multiple overloads exist
-					string paramTypes = string.Join(", ", methodSymbol.Parameters.Select(p => p.Type.Name));
-					title += $" ({paramTypes})";
+					// Show parameter names in title when multiple overloads exist
+					string paramNames = string.Join(", ", methodSymbol.Parameters.Select(p => p.Name));
+					title += $" ({paramNames})";
 				}
 
 				CodeAction action = CodeAction.Create(
