@@ -1105,9 +1105,45 @@ namespace RG.CodeAnalyzer {
 									}
 								}
 							}
-							ImmutableList<ParameterSyntax> mustBeLockedParameters = declaredParameters.Where(declaredParameter => declaredParameter.AttributeLists.Any(attributeList => attributeList.Attributes.Any(attribute => attribute.Name.ToString() is "MustBeLocked" or "RG.Annotations.MustBeLocked"))).ToImmutableList();
-							if (mustBeLockedParameters.Count > 0) {
-								// TODO: Implement RG0030
+						}
+						
+						// RG0030: Check if arguments marked with [MustBeLocked] are actually locked
+						for (int i = 0; i < Math.Min(methodParameters.Length, invocationArguments.Count); i++) {
+							IParameterSymbol parameter = methodParameters[i];
+							bool hasMustBeLockedAttribute = parameter.GetAttributes().Any(attr =>
+								attr.AttributeClass?.Name is "MustBeLockedAttribute");
+							
+							if (hasMustBeLockedAttribute) {
+								ArgumentSyntax argument = invocationArguments[i];
+								ExpressionSyntax argumentExpression = argument.Expression;
+								
+								// Check if the invocation is inside a lock statement
+								bool isLocked = false;
+								foreach (LockStatementSyntax lockStatement in invocationExpressionSyntax.Ancestors().OfType<LockStatementSyntax>()) {
+									// Compare the locked expression with the argument expression
+									// Try semantic comparison first (for simple symbols like variables, fields, parameters)
+									ISymbol? lockedSymbol = context.SemanticModel.GetSymbolInfo(lockStatement.Expression, context.CancellationToken).Symbol;
+									ISymbol? argumentSymbol = context.SemanticModel.GetSymbolInfo(argumentExpression, context.CancellationToken).Symbol;
+									
+									bool expressionsMatch = false;
+									if (lockedSymbol is not null && argumentSymbol is not null) {
+										// Use semantic comparison for simple expressions
+										expressionsMatch = SymbolEqualityComparer.Default.Equals(lockedSymbol, argumentSymbol);
+									} else {
+										// Fall back to syntactic comparison for complex expressions (array access, property access, etc.)
+										expressionsMatch = lockStatement.Expression.IsEquivalentTo(argumentExpression);
+									}
+									
+									if (expressionsMatch) {
+										isLocked = true;
+										break;
+									}
+								}
+								
+								if (!isLocked) {
+									Diagnostic diagnostic = Diagnostic.Create(ARGUMENT_MUST_BE_LOCKED, argument.GetLocation());
+									context.ReportDiagnostic(diagnostic);
+								}
 							}
 						}
 						
