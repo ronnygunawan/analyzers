@@ -611,3 +611,27 @@ class C : B {
 ```
 
 The base call can be placed anywhere in the method body - before, after, or in the middle of the override's logic.
+
+### 42. Refactor expression-bodied property to auto-property with initializer
+
+```cs
+private const int SixSeven = 67;
+private static readonly TimeSpan OneHour = TimeSpan.FromHours(1);
+
+public int MaxSize => SixSeven; // RG0042: Property 'MaxSize' can be refactored to auto-property with initializer
+public TimeSpan TTL => OneHour; // RG0042: Property 'TTL' can be refactored to auto-property with initializer
+```
+
+This analyzer detects expression-bodied properties that return constant or static readonly field values and suggests refactoring them to auto-properties with initializers for better performance and clarity.
+
+Code fix: Refactor to auto-property with initializer
+
+```cs
+private const int SixSeven = 67;
+private static readonly TimeSpan OneHour = TimeSpan.FromHours(1);
+
+public int MaxSize { get; } = SixSeven; // Refactored
+public TimeSpan TTL { get; } = OneHour; // Refactored
+```
+
+The refactoring improves performance because auto-properties with initializers are assigned once during object construction, whereas expression-bodied properties are evaluated every time the property is accessed.
