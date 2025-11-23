@@ -169,12 +169,7 @@ namespace RG.CodeAnalyzer {
 			SyntaxTriviaList closingTrivia = TriviaList(LineFeed, Whitespace(closingIndent));
 
 			SeparatedSyntaxList<ArgumentSyntax> formattedArguments = SeparatedList(
-				newArguments.Select((arg, index) => {
-					if (index == 0) {
-						return arg.WithLeadingTrivia(argumentLeadingTrivia);
-					}
-					return arg.WithLeadingTrivia(argumentLeadingTrivia);
-				}),
+				newArguments.Select(arg => arg.WithLeadingTrivia(argumentLeadingTrivia)),
 				Enumerable.Repeat(Token(SyntaxKind.CommaToken), newArguments.Count - 1)
 			);
 
@@ -224,12 +219,7 @@ namespace RG.CodeAnalyzer {
 			SyntaxTriviaList closingTrivia = TriviaList(LineFeed, Whitespace(closingIndent));
 
 			SeparatedSyntaxList<ArgumentSyntax> formattedArguments = SeparatedList(
-				newArguments.Select((arg, index) => {
-					if (index == 0) {
-						return arg.WithLeadingTrivia(argumentLeadingTrivia);
-					}
-					return arg.WithLeadingTrivia(argumentLeadingTrivia);
-				}),
+				newArguments.Select(arg => arg.WithLeadingTrivia(argumentLeadingTrivia)),
 				Enumerable.Repeat(Token(SyntaxKind.CommaToken), newArguments.Count - 1)
 			);
 
