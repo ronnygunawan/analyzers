@@ -53,6 +53,7 @@ namespace RG.CodeAnalyzer {
 		public const string NULLABLE_REFERENCE_TYPE_NOT_ENABLED_ID = "RG0039";
 		public const string MUST_CALL_BASE_METHOD_ID = "RG0040";
 		public const string NEVER_ASYNC_ATTRIBUTE_MISUSE_ID = "RG0041";
+		public const string REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY_ID = "RG0042";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -414,6 +415,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "The [NeverAsync] attribute can only be used on methods that return Task but do not use the async modifier and do not call async methods.");
 
+		private static readonly DiagnosticDescriptor REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY = new(
+			id: REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY_ID,
+			title: "Refactor expression-bodied property to auto-property with initializer",
+			messageFormat: "Property '{0}' can be refactored to auto-property with initializer",
+			category: "Code Style",
+			defaultSeverity: DiagnosticSeverity.Info,
+			isEnabledByDefault: true,
+			description: "Expression-bodied properties that return constant or static readonly values can be refactored to auto-properties with initializers for better performance.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -454,7 +464,8 @@ namespace RG.CodeAnalyzer {
 			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING,
 			NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
 			MUST_CALL_BASE_METHOD,
-			NEVER_ASYNC_ATTRIBUTE_MISUSE
+			NEVER_ASYNC_ATTRIBUTE_MISUSE,
+			REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -558,6 +569,9 @@ namespace RG.CodeAnalyzer {
 
 			// NEVER_ASYNC_ATTRIBUTE_MISUSE
 			context.RegisterSymbolAction(AnalyzeNeverAsyncAttribute, SymbolKind.Method);
+
+			// REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY
+			context.RegisterSyntaxNodeAction(AnalyzePropertyDeclarations, SyntaxKind.PropertyDeclaration);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -2232,6 +2246,32 @@ namespace RG.CodeAnalyzer {
 			return methodSymbol.GetAttributes().Any(attr =>
 				attr.AttributeClass is { Name: "NeverAsyncAttribute" or "NeverAsync" } attrClass
 				&& attrClass.ContainingNamespace?.ToDisplayString() == "RG.Annotations");
+		}
+
+		private static void AnalyzePropertyDeclarations(SyntaxNodeAnalysisContext context) {
+			try {
+				if (context.Node is PropertyDeclarationSyntax propertyDeclaration) {
+					if (propertyDeclaration.ExpressionBody is ArrowExpressionClauseSyntax { Expression: var expression }) {
+						if (context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is ISymbol symbol) {
+							bool isConstOrStaticReadonly = false;
+
+							if (symbol is IFieldSymbol fieldSymbol) {
+								isConstOrStaticReadonly = fieldSymbol.IsConst || (fieldSymbol.IsStatic && fieldSymbol.IsReadOnly);
+							}
+
+							if (isConstOrStaticReadonly) {
+								Diagnostic diagnostic = Diagnostic.Create(
+									REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY,
+									propertyDeclaration.GetLocation(),
+									propertyDeclaration.Identifier.ValueText);
+								context.ReportDiagnostic(diagnostic);
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
 		}
     #endregion
 	}
