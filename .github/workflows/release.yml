@@ -33,11 +33,13 @@ jobs:
     - name: Update project version for RG.CodeAnalyzer
       run: |
         sed -i 's|<Version>[^<]*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g' RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
+        sed -i 's|<PackageVersion>[^<]*</PackageVersion>|<PackageVersion>${{ steps.get_version.outputs.version }}</PackageVersion>|g' RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
         cat RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj
     
     - name: Update project version for RG.Annotations
       run: |
         sed -i 's|<Version>[^<]*</Version>|<Version>${{ steps.get_version.outputs.version }}</Version>|g' RG.Annotations/RG.Annotations.csproj
+        sed -i 's|<PackageVersion>[^<]*</PackageVersion>|<PackageVersion>${{ steps.get_version.outputs.version }}</PackageVersion>|g' RG.Annotations/RG.Annotations.csproj
         cat RG.Annotations/RG.Annotations.csproj
     
     - name: Restore dependencies
@@ -53,4 +55,5 @@ jobs:
       run: dotnet pack --no-build --configuration Release --output ./artifacts
     
     - name: Publish to NuGet
+      if: secrets.NUGET_API_KEY != ''
       run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
