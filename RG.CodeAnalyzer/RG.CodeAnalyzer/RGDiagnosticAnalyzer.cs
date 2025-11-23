@@ -2088,15 +2088,17 @@ namespace RG.CodeAnalyzer {
 							foreach (SyntaxReference reference in methodSymbol.DeclaringSyntaxReferences) {
 								SyntaxNode syntax = reference.GetSyntax();
 								if (syntax is MethodDeclarationSyntax methodDeclaration && methodDeclaration.Body is not null) {
-									callsBase = ContainsBaseCall(methodDeclaration.Body, methodSymbol.Name);
+									callsBase = callsBase || ContainsBaseCall(methodDeclaration.Body, methodSymbol.Name);
 								} else if (syntax is MethodDeclarationSyntax { ExpressionBody: not null } exprMethodDeclaration) {
-									callsBase = ContainsBaseCall(exprMethodDeclaration.ExpressionBody, methodSymbol.Name);
+									callsBase = callsBase || ContainsBaseCall(exprMethodDeclaration.ExpressionBody, methodSymbol.Name);
 								}
+							}
 
-								if (!callsBase) {
+							if (!callsBase) {
+								foreach (SyntaxReference reference in methodSymbol.DeclaringSyntaxReferences) {
 									Diagnostic diagnostic = Diagnostic.Create(
 										MUST_CALL_BASE_METHOD,
-										syntax.GetLocation(),
+										reference.GetSyntax().GetLocation(),
 										methodSymbol.Name
 									);
 									context.ReportDiagnostic(diagnostic);
@@ -2113,8 +2115,12 @@ namespace RG.CodeAnalyzer {
 		private static bool HasMustCallBaseInChain(IMethodSymbol methodSymbol) {
 			IMethodSymbol? current = methodSymbol;
 			while (current is not null) {
-				if (current.GetAttributes().Any(attr => attr.AttributeClass?.Name is "MustCallBaseAttribute" or "MustCallBase")) {
-					return true;
+				foreach (AttributeData attribute in current.GetAttributes()) {
+					if (attribute.AttributeClass is { } attrClass &&
+						attrClass.Name is "MustCallBaseAttribute" or "MustCallBase" &&
+						attrClass.ContainingNamespace?.ToDisplayString() == "RG.Annotations") {
+						return true;
+					}
 				}
 				current = current.OverriddenMethod;
 			}
