@@ -370,6 +370,11 @@ X x = new() {
 };
 ```
 
+### 30. Argument must be locked
+Methods can be annotated with the `[MustBeLocked]` attribute to indicate that certain arguments must be locked before calling the method.
+
+**Note:** This analyzer (RG0030) is declared but not yet fully implemented. See the repository issues for implementation status.
+
 ### 31. Do not use `dynamic` type
 ```cs
 dynamic x = 1; // RG0031: Do not use dynamic type
@@ -391,15 +396,6 @@ var list = await _dbContext.Items.ToListAsync(CancellationToken.None); // RG0033
 If you explicitly pass `CancellationToken.None` or `default` to a method that has an overload without the CancellationToken parameter, use the overload without it instead.
 
 Code fix: Remove the CancellationToken argument
-
-## Code Refactorings
-
-### Generate GUID in empty string literal
-Place your cursor on an empty string literal `""` and invoke code actions (Ctrl+. or Cmd+.) to see the "Generate GUID" refactoring option.
-```cs
-string id = ""; // Offers: Generate GUID
-// After applying: string id = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
-```
 
 ### 34. Service registered with Add{Lifetime} must have corresponding lifetime attribute
 Services registered with dependency injection must be marked with the appropriate lifetime attribute.
@@ -504,6 +500,40 @@ namespace MyApp {
 ```
 
 Code fix: Make the implementation class internal
+
+### 37. Usage is restricted to a specific namespace
+Classes, structs, or other symbols marked with the `[RestrictTo]` attribute can only be used within the specified namespace.
+
+```cs
+using RG.Annotations;
+
+namespace Baz {
+    [RestrictTo("Baz")]
+    public class Foo { }
+}
+
+namespace Bar {
+    class C : Foo { } // RG0037: Usage of 'Foo' is only allowed in namespace 'Baz'
+}
+```
+
+Correct usage:
+```cs
+using RG.Annotations;
+
+namespace Baz {
+    [RestrictTo("Baz")]
+    public class Foo { }
+    
+    class C : Foo { } // OK - within allowed namespace
+}
+
+namespace Baz.Sub {
+    class D : Foo { } // OK - within sub-namespace
+}
+```
+
+This analyzer helps enforce architectural boundaries by restricting where certain types can be used. Sub-namespaces of the restricted namespace are allowed.
 
 ### 38. Pending justification for suppressing code analysis message
 ```cs
@@ -612,6 +642,27 @@ class C : B {
 
 The base call can be placed anywhere in the method body - before, after, or in the middle of the override's logic.
 
+### 41. Invalid use of [NeverAsync] attribute
+The `[NeverAsync]` attribute from the `RG.Annotations` package indicates that a method returns a `Task` but never executes asynchronously. When a method is marked with this attribute, the RG0006 (Task.Wait) and RG0007 (Task.Result) warnings are suppressed when calling that method.
+
+```cs
+using System.Threading.Tasks;
+using RG.Annotations;
+
+class MyClass {
+    [NeverAsync]
+    private Task<int> Foo() => Task.FromResult(10); // OK - never actually async
+    
+    public void Bar() {
+        int x = Foo().Result; // OK - RG0007 suppressed because Foo is marked [NeverAsync]
+    }
+}
+```
+
+The analyzer produces RG0041 warnings if the `[NeverAsync]` attribute is misused (e.g., on methods that don't return `Task`, or on `async` methods).
+
+**Note:** Use this attribute sparingly and only when you're certain the method never executes asynchronously. Misuse can lead to confusion and maintenance issues.
+
 ### 42. Refactor expression-bodied property to auto-property with initializer
 
 ```cs
@@ -635,3 +686,15 @@ public TimeSpan TTL { get; } = OneHour; // Refactored
 ```
 
 The refactoring improves performance because auto-properties with initializers are assigned once during object construction, whereas expression-bodied properties are evaluated every time the property is accessed.
+
+## Code Refactorings
+
+### Generate GUID in empty string literal
+Place your cursor on an empty string literal `""` and invoke code actions (Ctrl+. or Cmd+.) to see the "Generate GUID" refactoring option.
+
+```cs
+string id = ""; // Offers: Generate GUID
+// After applying: string id = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+```
+
+This refactoring is useful when you need to quickly generate unique identifiers in your code.

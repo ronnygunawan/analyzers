@@ -141,6 +141,16 @@ See README.md section 21 for note about work in progress features.
 - Include code examples showing the warning
 - Show the code fix behavior if applicable
 - Use consistent formatting matching existing sections
+- **CRITICAL**: When adding a new analyzer, you must update THREE files:
+  1. **README.md** - Add a new numbered section (### N.) with analyzer description and examples
+  2. **AnalyzerReleases.Unshipped.md** - Add a new row in the table with Rule ID, Category, Severity, and Notes
+  3. The analyzer implementation in **RGDiagnosticAnalyzer.cs**
+- **CRITICAL**: When adding a new code refactoring:
+  1. Add it to the **Code Refactorings:** section in README.md (not in the Analyzers section)
+  2. Create the refactoring provider in a new `*RefactoringProvider.cs` file
+- Section numbers in README.md should match the RG00XX diagnostic ID numbers
+- Code refactorings go in a separate section at the end of README.md after all analyzers
+- Keep documentation up-to-date with code changes to avoid RS2000/RS2001 warnings
 
 ## Version Management
 
@@ -176,7 +186,7 @@ See README.md section 21 for note about work in progress features.
 - **Convention**: Project-specific conventions
 
 ### Current Analyzer Count
-As of this document: RG0001 through RG0032 (with some gaps/reserved IDs)
+As of this document: RG0001 through RG0042 (with RG0020 reserved/not implemented, RG0030 declared but not fully implemented)
 
 ## Contact and Resources
 
