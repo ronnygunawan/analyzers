@@ -68,7 +68,7 @@ jobs:
         path: RG.Annotations/bin/Release/*.nupkg
     
     - name: Publish to NuGet (if NUGET_API_KEY is set)
-      if: secrets.NUGET_API_KEY
+      if: ${{ secrets.NUGET_API_KEY != '' }}
       run: |
         dotnet nuget push RG.CodeAnalyzer/RG.CodeAnalyzer/bin/Release/*.nupkg \
           --api-key ${{ secrets.NUGET_API_KEY }} \
