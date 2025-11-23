@@ -51,6 +51,7 @@ namespace RG.CodeAnalyzer {
 		public const string USAGE_RESTRICTED_TO_NAMESPACE_ID = "RG0037";
 		public const string SUPPRESS_MESSAGE_JUSTIFICATION_PENDING_ID = "RG0038";
 		public const string NULLABLE_REFERENCE_TYPE_NOT_ENABLED_ID = "RG0039";
+		public const string MUST_CALL_BASE_METHOD_ID = "RG0040";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -394,6 +395,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Nullable reference type static analysis should be enabled to prevent null reference exceptions.");
 
+		private static readonly DiagnosticDescriptor MUST_CALL_BASE_METHOD = new(
+			id: MUST_CALL_BASE_METHOD_ID,
+			title: "Override method must call base method",
+			messageFormat: "Method '{0}' must call base.{0}() because the base method is marked with [MustCallBase]",
+			category: "Reliability",
+			defaultSeverity: DiagnosticSeverity.Error,
+			isEnabledByDefault: true,
+			description: "When a base method is marked with [MustCallBase], all overriding methods must call the base implementation.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -432,7 +442,8 @@ namespace RG.CodeAnalyzer {
 			DI_IMPLEMENTATION_MUST_BE_INTERNAL,
 			USAGE_RESTRICTED_TO_NAMESPACE,
 			SUPPRESS_MESSAGE_JUSTIFICATION_PENDING,
-			NULLABLE_REFERENCE_TYPE_NOT_ENABLED
+			NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
+			MUST_CALL_BASE_METHOD
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -530,6 +541,9 @@ namespace RG.CodeAnalyzer {
 
 			// NULLABLE_REFERENCE_TYPE_NOT_ENABLED
 			context.RegisterCompilationStartAction(AnalyzeNullableContext);
+
+			// MUST_CALL_BASE_METHOD
+			context.RegisterSymbolAction(AnalyzeMethodOverrides, SymbolKind.Method);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -2059,6 +2073,62 @@ namespace RG.CodeAnalyzer {
 			} catch (Exception exc) {
 				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
 			}
+		}
+
+		private static void AnalyzeMethodOverrides(SymbolAnalysisContext context) {
+			try {
+				if (context.Symbol is IMethodSymbol methodSymbol && methodSymbol.IsOverride) {
+					IMethodSymbol? overriddenMethod = methodSymbol.OverriddenMethod;
+					if (overriddenMethod is not null) {
+						bool hasMustCallBase = HasMustCallBaseInChain(overriddenMethod);
+
+						if (hasMustCallBase) {
+							bool callsBase = false;
+
+							foreach (SyntaxReference reference in methodSymbol.DeclaringSyntaxReferences) {
+								SyntaxNode syntax = reference.GetSyntax();
+								if (syntax is MethodDeclarationSyntax methodDeclaration && methodDeclaration.Body is not null) {
+									callsBase = ContainsBaseCall(methodDeclaration.Body, methodSymbol.Name);
+								} else if (syntax is MethodDeclarationSyntax { ExpressionBody: not null } exprMethodDeclaration) {
+									callsBase = ContainsBaseCall(exprMethodDeclaration.ExpressionBody, methodSymbol.Name);
+								}
+
+								if (!callsBase) {
+									Diagnostic diagnostic = Diagnostic.Create(
+										MUST_CALL_BASE_METHOD,
+										syntax.GetLocation(),
+										methodSymbol.Name
+									);
+									context.ReportDiagnostic(diagnostic);
+								}
+							}
+						}
+					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static bool HasMustCallBaseInChain(IMethodSymbol methodSymbol) {
+			IMethodSymbol? current = methodSymbol;
+			while (current is not null) {
+				if (current.GetAttributes().Any(attr => attr.AttributeClass?.Name is "MustCallBaseAttribute" or "MustCallBase")) {
+					return true;
+				}
+				current = current.OverriddenMethod;
+			}
+			return false;
+		}
+
+		private static bool ContainsBaseCall(SyntaxNode node, string methodName) {
+			return node.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(invocation => {
+				if (invocation.Expression is MemberAccessExpressionSyntax memberAccess) {
+					return memberAccess.Expression is BaseExpressionSyntax &&
+						   memberAccess.Name.Identifier.Text == methodName;
+				}
+				return false;
+			});
 		}
     #endregion
 	}
