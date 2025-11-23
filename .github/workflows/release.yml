@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+    
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        # Remove 'v' prefix if present
+        VERSION=${GITHUB_REF#refs/tags/}
+        VERSION=${VERSION#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build RG.CodeAnalyzer
+      run: |
+        dotnet build RG.CodeAnalyzer/RG.CodeAnalyzer/RG.CodeAnalyzer.csproj \
+          --configuration Release \
+          --no-restore \
+          /p:Version=${{ steps.get_version.outputs.version }} \
+          /p:PackageVersion=${{ steps.get_version.outputs.version }}
+    
+    - name: Build RG.Annotations
+      run: |
+        dotnet build RG.Annotations/RG.Annotations.csproj \
+          --configuration Release \
+          --no-restore \
+          /p:Version=${{ steps.get_version.outputs.version }} \
+          /p:PackageVersion=${{ steps.get_version.outputs.version }}
+    
+    - name: List generated packages
+      run: |
+        echo "RG.CodeAnalyzer packages:"
+        ls -la RG.CodeAnalyzer/RG.CodeAnalyzer/bin/Release/*.nupkg || echo "No packages found"
+        echo ""
+        echo "RG.Annotations packages:"
+        ls -la RG.Annotations/bin/Release/*.nupkg || echo "No packages found"
+    
+    - name: Upload RG.CodeAnalyzer package
+      uses: actions/upload-artifact@v4
+      with:
+        name: RG.CodeAnalyzer-${{ steps.get_version.outputs.version }}
+        path: RG.CodeAnalyzer/RG.CodeAnalyzer/bin/Release/*.nupkg
+    
+    - name: Upload RG.Annotations package
+      uses: actions/upload-artifact@v4
+      with:
+        name: RG.Annotations-${{ steps.get_version.outputs.version }}
+        path: RG.Annotations/bin/Release/*.nupkg
+    
+    - name: Publish to NuGet (if NUGET_API_KEY is set)
+      if: env.NUGET_API_KEY != ''
+      run: |
+        dotnet nuget push "RG.CodeAnalyzer/RG.CodeAnalyzer/bin/Release/*.nupkg" \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate
+        dotnet nuget push "RG.Annotations/bin/Release/*.nupkg" \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
