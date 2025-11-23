@@ -565,3 +565,49 @@ namespace ConsoleApplication1
 ```
 
 **Note:** If you have legacy code and don't want to enable nullable reference types project-wide, you can disable this analyzer by setting its severity to `None` in your `.editorconfig` or project configuration.
+
+### 40. Override method must call base method
+
+```cs
+class A {
+    [MustCallBase]
+    protected virtual void Foo() {
+    }
+}
+
+class B : A {
+    protected override void Foo() { // Error: must call base method
+    }
+}
+```
+
+This analyzer ensures that when a virtual or abstract method is marked with the `[MustCallBase]` attribute from the `RG.Annotations` package, all overriding methods must call the base implementation. This is similar to Kotlin's `@CallSuper` annotation.
+
+The analyzer checks the entire inheritance chain, so if a method in any ancestor class has `[MustCallBase]`, all descendants must call their immediate base implementation.
+
+#### Correct Usage:
+
+```cs
+class A {
+    [MustCallBase]
+    protected virtual void Foo() {
+        // Base implementation
+    }
+}
+
+class B : A {
+    protected override void Foo() {
+        base.Foo(); // Correct: calls base implementation
+        // Additional logic
+    }
+}
+
+class C : B {
+    protected override void Foo() {
+        base.Foo(); // Also required: the attribute is inherited through the chain
+        // Additional logic
+    }
+}
+```
+
+The base call can be placed anywhere in the method body - before, after, or in the middle of the override's logic.
