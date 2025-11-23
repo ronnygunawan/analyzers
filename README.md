@@ -530,3 +530,38 @@ class MyClass {
     }
 }
 ```
+
+### 39. Nullable reference type is not enabled
+```cs
+// RG0039: Nullable reference type static analysis is not enabled
+namespace ConsoleApplication1
+{
+    public class TypeName
+    {
+        public string Name { get; set; }
+    }
+}
+```
+
+This analyzer produces an error when nullable reference type static analysis is not enabled in a C# project. Nullable reference types help prevent null reference exceptions by making the type system express whether a reference can be null or not.
+
+To enable nullable reference types, add one of the following to your project file (`.csproj`):
+```xml
+<PropertyGroup>
+    <Nullable>enable</Nullable>
+</PropertyGroup>
+```
+
+Or use the `#nullable enable` directive at the top of your source files:
+```cs
+#nullable enable
+namespace ConsoleApplication1
+{
+    public class TypeName
+    {
+        public string? Name { get; set; } // ? indicates nullable
+    }
+}
+```
+
+**Note:** If you have legacy code and don't want to enable nullable reference types project-wide, you can disable this analyzer by setting its severity to `None` in your `.editorconfig` or project configuration.

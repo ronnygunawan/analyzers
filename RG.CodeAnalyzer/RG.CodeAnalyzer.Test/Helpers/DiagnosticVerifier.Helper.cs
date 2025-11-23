@@ -149,6 +149,14 @@ namespace TestHelper {
 				.AddMetadataReference(projectId, RG_ANNOTATIONS_REFERENCE)
 				.AddMetadataReference(projectId, PROTO_DUMMIES_REFERENCE);
 
+			Project project = solution.GetProject(projectId)!;
+			if (language == LanguageNames.CSharp && project.CompilationOptions is CSharpCompilationOptions csharpOptions) {
+				project = project.WithCompilationOptions(
+					csharpOptions.WithNullableContextOptions(NullableContextOptions.Enable)
+				);
+				solution = project.Solution;
+			}
+
 			int count = 0;
 			foreach (string source in sources) {
 				string newFileName = fileNamePrefix + count + "." + fileExt;
