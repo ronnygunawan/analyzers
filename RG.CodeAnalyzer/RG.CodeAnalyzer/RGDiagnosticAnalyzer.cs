@@ -978,7 +978,7 @@ namespace RG.CodeAnalyzer {
 							}
 							if (serviceType is INamedTypeSymbol namedServiceType) {
 								string? actualLifetime = GetServiceLifetime(namedServiceType);
-								if (actualLifetime is null || actualLifetime != requiredAttribute) {
+								if (actualLifetime is not null && actualLifetime != requiredAttribute) {
 									Diagnostic diagnostic = Diagnostic.Create(
 										SERVICE_MUST_HAVE_LIFETIME_ATTRIBUTE,
 										invocationExpressionSyntax.GetLocation(),

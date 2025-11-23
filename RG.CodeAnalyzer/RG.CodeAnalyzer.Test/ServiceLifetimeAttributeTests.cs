@@ -37,17 +37,7 @@ namespace TestNamespace {
 }
 ";
 
-			DiagnosticResult expected = new() {
-				Id = "RG0034",
-				Message = "Service 'MyService' registered with AddSingleton must be marked with [Singleton] attribute",
-				Severity = DiagnosticSeverity.Error,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 18, 4)
-					}
-			};
-
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
@@ -105,17 +95,7 @@ namespace TestNamespace {
 }
 ";
 
-			DiagnosticResult expected = new() {
-				Id = "RG0034",
-				Message = "Service 'MyService' registered with AddScoped must be marked with [Scoped] attribute",
-				Severity = DiagnosticSeverity.Error,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 18, 4)
-					}
-			};
-
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
@@ -173,17 +153,7 @@ namespace TestNamespace {
 }
 ";
 
-			DiagnosticResult expected = new() {
-				Id = "RG0034",
-				Message = "Service 'MyService' registered with AddTransient must be marked with [Transient] attribute",
-				Severity = DiagnosticSeverity.Error,
-				Locations =
-					new[] {
-						new DiagnosticResultLocation("Test0.cs", 18, 4)
-					}
-			};
-
-			VerifyCSharpDiagnostic(test, expected);
+			VerifyCSharpDiagnostic(test);
 		}
 
 		[TestMethod]
