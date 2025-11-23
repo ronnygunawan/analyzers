@@ -5,7 +5,7 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-RG0001 | Performance | Warning | Do not await inside a loop
+RG0001 | Performance | Info | Do not await inside a loop
 RG0002 | Reliability | Warning | Do not return Task from a method that disposes object
 RG0003 | Security | Error | Identifiers declared in Internal namespace must be internal
 RG0004 | Code Quality | Warning | Do not access private fields of another object directly
@@ -36,3 +36,13 @@ RG0029 | Usage | Error | Can only initialize one of properties in a OneOf case
 RG0030 | Convention | Error | Argument must be locked
 RG0031 | Code Quality | Error | Do not use dynamic type
 RG0032 | Naming | Warning | Static classes containing extension methods should have an 'Extensions' suffix
+RG0033 | Performance | Warning | Use overload without CancellationToken if default or CancellationToken.None was supplied
+RG0034 | Convention | Error | Service registered with Add{Lifetime} must have corresponding lifetime attribute
+RG0035 | Reliability | Error | Service with longer lifetime cannot depend on service with shorter lifetime
+RG0036 | Code Quality | Warning | DI implementation classes should be internal
+RG0037 | Usage | Error | Usage is restricted to a specific namespace
+RG0038 | Code Quality | Warning | Pending justification for suppressing code analysis message
+RG0039 | Code Quality | Error | Nullable reference type is not enabled
+RG0040 | Reliability | Error | Override method must call base method
+RG0041 | Code Quality | Warning | Invalid use of [NeverAsync] attribute
+RG0042 | Code Style | Info | Refactor expression-bodied property to auto-property with initializer
