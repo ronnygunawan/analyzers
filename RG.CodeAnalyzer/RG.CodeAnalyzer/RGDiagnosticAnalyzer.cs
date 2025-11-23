@@ -54,6 +54,7 @@ namespace RG.CodeAnalyzer {
 		public const string MUST_CALL_BASE_METHOD_ID = "RG0040";
 		public const string NEVER_ASYNC_ATTRIBUTE_MISUSE_ID = "RG0041";
 		public const string REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY_ID = "RG0042";
+		public const string FILE_SHOULD_NOT_EXCEED_LINE_LIMIT_ID = "RG0043";
 
 		private static readonly DiagnosticDescriptor NO_AWAIT_INSIDE_LOOP = new(
 			id: NO_AWAIT_INSIDE_LOOP_ID,
@@ -424,6 +425,15 @@ namespace RG.CodeAnalyzer {
 			isEnabledByDefault: true,
 			description: "Expression-bodied properties that return constant or static readonly values can be refactored to auto-properties with initializers for better performance.");
 
+		private static readonly DiagnosticDescriptor FILE_SHOULD_NOT_EXCEED_LINE_LIMIT = new(
+			id: FILE_SHOULD_NOT_EXCEED_LINE_LIMIT_ID,
+			title: "File should not contain more than 1000 lines",
+			messageFormat: "File '{0}' contains {1} lines, which exceeds the maximum recommended limit of 1000 lines",
+			category: "Maintainability",
+			defaultSeverity: DiagnosticSeverity.Info,
+			isEnabledByDefault: true,
+			description: "Files should not contain more than 1000 lines to maintain readability and maintainability.");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
 			NO_AWAIT_INSIDE_LOOP,
 			DONT_RETURN_TASK_IF_METHOD_DISPOSES_OBJECT,
@@ -465,7 +475,8 @@ namespace RG.CodeAnalyzer {
 			NULLABLE_REFERENCE_TYPE_NOT_ENABLED,
 			MUST_CALL_BASE_METHOD,
 			NEVER_ASYNC_ATTRIBUTE_MISUSE,
-			REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY
+			REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY,
+			FILE_SHOULD_NOT_EXCEED_LINE_LIMIT
 		);
 
 		public override void Initialize(AnalysisContext context) {
@@ -572,6 +583,9 @@ namespace RG.CodeAnalyzer {
 
 			// REFACTOR_EXPRESSION_BODIED_PROPERTY_TO_AUTO_PROPERTY
 			context.RegisterSyntaxNodeAction(AnalyzePropertyDeclarations, SyntaxKind.PropertyDeclaration);
+
+			// FILE_SHOULD_NOT_EXCEED_LINE_LIMIT
+			context.RegisterSyntaxTreeAction(AnalyzeFileLineCount);
 		}
 
 		private static void AnalyzeAwaitExpression(SyntaxNodeAnalysisContext context) {
@@ -2268,6 +2282,29 @@ namespace RG.CodeAnalyzer {
 							}
 						}
 					}
+				}
+			} catch (Exception exc) {
+				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);
+			}
+		}
+
+		private static void AnalyzeFileLineCount(SyntaxTreeAnalysisContext context) {
+			try {
+				SyntaxTree tree = context.Tree;
+				string filePath = tree.FilePath;
+				
+				if (string.IsNullOrEmpty(filePath)) return;
+
+				int lineCount = tree.GetText(context.CancellationToken).Lines.Count;
+
+				if (lineCount > 1000) {
+					string fileName = System.IO.Path.GetFileName(filePath);
+					Diagnostic diagnostic = Diagnostic.Create(
+						FILE_SHOULD_NOT_EXCEED_LINE_LIMIT,
+						Location.Create(tree, Microsoft.CodeAnalysis.Text.TextSpan.FromBounds(0, 0)),
+						fileName,
+						lineCount);
+					context.ReportDiagnostic(diagnostic);
 				}
 			} catch (Exception exc) {
 				throw new Exception($"'{exc.GetType()}' was thrown from {exc.StackTrace}", exc);

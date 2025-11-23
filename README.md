@@ -722,6 +722,21 @@ public TimeSpan TTL { get; } = OneHour; // Refactored
 
 The refactoring improves performance because auto-properties with initializers are assigned once during object construction, whereas expression-bodied properties are evaluated every time the property is accessed.
 
+### 43. File should not contain more than 1000 lines
+
+```cs
+// In a file with more than 1000 lines:
+// RG0043: File 'LargeClass.cs' contains 1523 lines, which exceeds the maximum recommended limit of 1000 lines
+   1 | using System;
+   2 | using System.Collections;
+ ... |
+1521 |     }
+1522 | }
+1523 |
+```
+
+This analyzer warns when a source file exceeds 1000 lines, encouraging better code organization and maintainability. Large files can be difficult to navigate and understand, and often indicate that classes or modules should be split into smaller, more focused components.
+
 ## Code Refactorings
 
 ### Generate GUID in empty string literal
