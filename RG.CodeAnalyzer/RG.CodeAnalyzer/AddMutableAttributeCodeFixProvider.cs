@@ -63,10 +63,15 @@ namespace RG.CodeAnalyzer {
 
 			SyntaxTriviaList leadingTrivia = recordDeclaration.GetLeadingTrivia();
 
+			SyntaxTrivia? lastWhitespace = leadingTrivia.LastOrDefault(t => t.IsKind(SyntaxKind.WhitespaceTrivia));
+			SyntaxTriviaList trailingTrivia = lastWhitespace.HasValue
+				? SyntaxFactory.TriviaList(SyntaxFactory.LineFeed, lastWhitespace.Value)
+				: SyntaxFactory.TriviaList(SyntaxFactory.LineFeed);
+
 			AttributeSyntax mutableAttribute = SyntaxFactory.Attribute(SyntaxFactory.IdentifierName("Mutable"));
 			AttributeListSyntax attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(mutableAttribute))
 				.WithLeadingTrivia(leadingTrivia)
-				.WithTrailingTrivia(SyntaxFactory.LineFeed);
+				.WithTrailingTrivia(trailingTrivia);
 
 			RecordDeclarationSyntax newRecordDeclaration = recordDeclaration
 				.WithAttributeLists(recordDeclaration.AttributeLists.Insert(0, attributeList))

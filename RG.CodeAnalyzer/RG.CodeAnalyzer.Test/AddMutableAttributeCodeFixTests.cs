@@ -13,9 +13,9 @@ namespace RG.CodeAnalyzer.Test {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public record RecordName {
-		public int PropertyName { get; set; }
-	}
+    public record RecordName {
+        public int PropertyName { get; set; }
+    }
 }";
 
 			string fixedCode = @"
@@ -24,8 +24,8 @@ using RG.Annotations;
 namespace ConsoleApplication1 {
     [Mutable]
     public record RecordName {
-		public int PropertyName { get; set; }
-	}
+        public int PropertyName { get; set; }
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -37,9 +37,9 @@ namespace ConsoleApplication1 {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public record RecordName {
-		public int X;
-	}
+    public record RecordName {
+        public int X;
+    }
 }";
 
 			string fixedCode = @"
@@ -48,8 +48,8 @@ using RG.Annotations;
 namespace ConsoleApplication1 {
     [Mutable]
     public record RecordName {
-		public int X;
-	}
+        public int X;
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -61,9 +61,9 @@ namespace ConsoleApplication1 {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public record RecordName {
-		public int[]? Numbers { get; init; }
-	}
+    public record RecordName {
+        public int[]? Numbers { get; init; }
+    }
 }";
 
 			string fixedCode = @"
@@ -72,8 +72,8 @@ using RG.Annotations;
 namespace ConsoleApplication1 {
     [Mutable]
     public record RecordName {
-		public int[]? Numbers { get; init; }
-	}
+        public int[]? Numbers { get; init; }
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -85,23 +85,23 @@ namespace ConsoleApplication1 {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public class MyClass { }
+    public class MyClass { }
 
-	public record RecordName {
-		public MyClass? Ref { get; init; }
-	}
+    public record RecordName {
+        public MyClass? Ref { get; init; }
+    }
 }";
 
 			string fixedCode = @"
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public class MyClass { }
+    public class MyClass { }
     [Mutable]
 
     public record RecordName {
-		public MyClass? Ref { get; init; }
-	}
+        public MyClass? Ref { get; init; }
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -112,9 +112,9 @@ namespace ConsoleApplication1 {
 			string test = @"using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	public record RecordName {
-		public int PropertyName { get; set; }
-	}
+    public record RecordName {
+        public int PropertyName { get; set; }
+    }
 }";
 
 			string fixedCode = @"using RG.Annotations;
@@ -122,8 +122,8 @@ namespace ConsoleApplication1 {
 namespace ConsoleApplication1 {
     [Mutable]
     public record RecordName {
-		public int PropertyName { get; set; }
-	}
+        public int PropertyName { get; set; }
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -135,10 +135,10 @@ namespace ConsoleApplication1 {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	[Serializable]
-	public record RecordName {
-		public int PropertyName { get; set; }
-	}
+    [Serializable]
+    public record RecordName {
+        public int PropertyName { get; set; }
+    }
 }";
 
 			string fixedCode = @"using System;
@@ -147,9 +147,9 @@ using RG.Annotations;
 namespace ConsoleApplication1 {
     [Mutable]
     [Serializable]
-	public record RecordName {
-		public int PropertyName { get; set; }
-	}
+    public record RecordName {
+        public int PropertyName { get; set; }
+    }
 }";
 
 			VerifyCSharpFix(test, fixedCode, allowNewCompilerDiagnostics: true);
@@ -161,10 +161,10 @@ namespace ConsoleApplication1 {
 using RG.Annotations;
 
 namespace ConsoleApplication1 {
-	[Mutable]
-	public record RecordName {
-		public int PropertyName { get; set; }
-	}
+    [Mutable]
+    public record RecordName {
+        public int PropertyName { get; set; }
+    }
 }";
 
 			VerifyCSharpDiagnostic(test);
