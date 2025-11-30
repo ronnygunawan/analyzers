@@ -784,3 +784,24 @@ DoSomething(
 **Note:** 
 - When multiple matching overloads are found, multiple code fixes will be offered, each showing the parameter names in the title to help you choose the correct overload.
 - This refactoring is **not offered** when all arguments are already supplied, as the built-in .NET analyzer already handles adding parameter names in that case.
+
+## Suppressions
+
+### RGS001: Suppress CA1812 for internal classes used as type parameters
+
+The CA1812 diagnostic ("Avoid uninstantiated internal classes") warns about internal classes that are never directly instantiated. However, this warning can be a false positive when internal classes are used as type parameters for generic methods or classes, since they may be instantiated via reflection or by external code (such as JSON serializers or dependency injection containers).
+
+This suppressor automatically suppresses CA1812 for internal classes that are referenced as type arguments in your code.
+
+```cs
+internal class Model { // CA1812 is suppressed because Model is used as a type argument below
+    public int Id { get; set; }
+}
+
+Model model = JsonConvert.DeserializeObject<Model>(json); // Model is used as type argument
+```
+
+The suppression applies when the internal class is used:
+- As a type argument in a generic method call (e.g., `Deserialize<Model>()`)
+- As a type argument in a generic type (e.g., `List<Model>`)
+- As a type argument within a `typeof` expression (e.g., `typeof(List<Model>)`)
