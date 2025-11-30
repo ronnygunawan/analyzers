@@ -98,7 +98,6 @@ using RG.Annotations;
 namespace ConsoleApplication1 {
     public class MyClass { }
     [Mutable]
-
     public record RecordName {
         public MyClass? Ref { get; init; }
     }
