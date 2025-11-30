@@ -165,6 +165,8 @@ record Foo {
 
 You can annotate records with `[Mutable]` attribute from [RG.Annotations](https://www.nuget.org/packages/RG.Annotations/) to skip all immutability checks (RG0015 to RG0020).
 
+Code fix: Add `[Mutable]` attribute to the record declaration (available for RG0015-RG0018)
+
 ---
 
 ### 16. Records should not contain mutable field
