@@ -66,7 +66,7 @@ namespace RG.CodeAnalyzer {
 			AttributeSyntax mutableAttribute = SyntaxFactory.Attribute(SyntaxFactory.IdentifierName("Mutable"));
 			AttributeListSyntax attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(mutableAttribute))
 				.WithLeadingTrivia(leadingTrivia)
-				.WithTrailingTrivia(SyntaxFactory.EndOfLine("\n"));
+				.WithTrailingTrivia(SyntaxFactory.LineFeed);
 
 			RecordDeclarationSyntax newRecordDeclaration = recordDeclaration
 				.WithAttributeLists(recordDeclaration.AttributeLists.Insert(0, attributeList))
@@ -84,7 +84,7 @@ namespace RG.CodeAnalyzer {
 						SyntaxFactory.QualifiedName(
 							SyntaxFactory.IdentifierName("RG"),
 							SyntaxFactory.IdentifierName("Annotations")))
-						.WithTrailingTrivia(SyntaxFactory.EndOfLine("\n"));
+						.WithTrailingTrivia(SyntaxFactory.LineFeed);
 
 					newRoot = compilationUnit.AddUsings(usingDirective);
 				}
