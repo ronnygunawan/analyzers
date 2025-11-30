@@ -63,13 +63,27 @@ namespace RG.CodeAnalyzer {
 
 			SyntaxTriviaList leadingTrivia = recordDeclaration.GetLeadingTrivia();
 
+			int endOfLineCount = leadingTrivia.Count(t => t.IsKind(SyntaxKind.EndOfLineTrivia));
+			SyntaxTrivia? lastWhitespace = leadingTrivia.LastOrDefault(t => t.IsKind(SyntaxKind.WhitespaceTrivia));
+
+			SyntaxTriviaList recordNewLeadingTrivia;
+			if (endOfLineCount >= 1) {
+				recordNewLeadingTrivia = lastWhitespace.HasValue
+					? SyntaxFactory.TriviaList(SyntaxFactory.LineFeed, lastWhitespace.Value)
+					: SyntaxFactory.TriviaList(SyntaxFactory.LineFeed);
+			} else {
+				recordNewLeadingTrivia = lastWhitespace.HasValue
+					? SyntaxFactory.TriviaList(lastWhitespace.Value)
+					: SyntaxFactory.TriviaList();
+			}
+
 			AttributeSyntax mutableAttribute = SyntaxFactory.Attribute(SyntaxFactory.IdentifierName("Mutable"));
 			AttributeListSyntax attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(mutableAttribute))
 				.WithLeadingTrivia(leadingTrivia);
 
 			RecordDeclarationSyntax newRecordDeclaration = recordDeclaration
 				.WithAttributeLists(recordDeclaration.AttributeLists.Insert(0, attributeList))
-				.WithLeadingTrivia(SyntaxFactory.TriviaList());
+				.WithLeadingTrivia(recordNewLeadingTrivia);
 
 			SyntaxNode newRoot = root.ReplaceNode(recordDeclaration, newRecordDeclaration);
 
