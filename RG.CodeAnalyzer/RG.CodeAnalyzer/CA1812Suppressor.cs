@@ -60,6 +60,10 @@ namespace RG.CodeAnalyzer {
 							}
 							break;
 						case TypeOfExpressionSyntax typeOfExpression:
+							TypeInfo typeOfTypeInfo = semanticModel.GetTypeInfo(typeOfExpression.Type, cancellationToken);
+							if (SymbolEqualityComparer.Default.Equals(typeOfTypeInfo.Type, typeSymbol)) {
+								return true;
+							}
 							if (typeOfExpression.Type is GenericNameSyntax genericTypeOf) {
 								foreach (TypeSyntax typeArg in genericTypeOf.TypeArgumentList.Arguments) {
 									TypeInfo typeInfo = semanticModel.GetTypeInfo(typeArg, cancellationToken);

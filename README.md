@@ -804,4 +804,4 @@ Model model = JsonConvert.DeserializeObject<Model>(json); // Model is used as ty
 The suppression applies when the internal class is used:
 - As a type argument in a generic method call (e.g., `Deserialize<Model>()`)
 - As a type argument in a generic type (e.g., `List<Model>`)
-- As a type argument within a `typeof` expression (e.g., `typeof(List<Model>)`)
+- In a `typeof` expression (e.g., `typeof(Model)` or `typeof(List<Model>)`)
